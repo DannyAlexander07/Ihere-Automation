@@ -68,9 +68,15 @@ services:
       dockerfile: infra/Dockerfile.api
       target: builder
     restart: "no"
+    working_dir: /app/apps/api
     environment:
       CI: "true"
       DATABASE_URL: postgresql://${POSTGRES_USER:?POSTGRES_USER is required}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:?POSTGRES_DB is required}?schema=public
+      LOGIN_ALIAS_PEPPER: ${LOGIN_ALIAS_PEPPER:?LOGIN_ALIAS_PEPPER is required}
+      BOOTSTRAP_ADMIN_DNI: ${BOOTSTRAP_ADMIN_DNI:-}
+      BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:-}
+      BOOTSTRAP_ADMIN_NAME: ${BOOTSTRAP_ADMIN_NAME:-}
+      BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:-}
     command:
       [
         "node",
@@ -78,7 +84,7 @@ services:
         "migrate",
         "deploy",
         "--schema",
-        "/app/apps/api/prisma/schema.prisma",
+        "prisma/schema.prisma",
       ]
     depends_on:
       postgres:
