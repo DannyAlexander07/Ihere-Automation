@@ -526,7 +526,20 @@ export class ExportRendererService {
           .text('Conocer más', { link: input.ctaUrl, underline: true });
       document.y = top + height + 14;
     }
-    ensurePdfSpace(document, 110);
+    const referencesHeight =
+      52 +
+      input.sources.reduce(
+        (height, source, index) =>
+          height +
+          document.heightOfString(
+            `${index + 1}. ${source.title} - ${source.entity}.`,
+            { width: bodyWidth, lineGap: 2 },
+          ) +
+          31,
+        0,
+      ) +
+      (input.internalLinks.length ? 42 + input.internalLinks.length * 18 : 0);
+    ensurePdfSpace(document, Math.min(referencesHeight, 500));
     document
       .moveDown(0.6)
       .font('Helvetica-Bold')
@@ -622,15 +635,37 @@ export class ExportRendererService {
     }
     if (block.type === 'bullet_list' || block.type === 'ordered_list') {
       (block.items ?? []).forEach((item, index) => {
-        document
-          .moveDown(0.25)
-          .font('Helvetica')
-          .fontSize(10.5)
-          .fillColor('#172033')
-          .text(
-            `${block.type === 'ordered_list' ? `${index + 1}.` : '•'}  ${plainInlineText(item)}`,
-            { indent: 12, paragraphGap: 2, lineGap: 3 },
-          );
+        const textWidth = width - 38;
+        const itemHeight =
+          document.heightOfString(plainInlineLabel(item), {
+            width: textWidth,
+            lineGap: 3,
+          }) + 7;
+        ensurePdfSpace(document, itemHeight);
+        const top = document.y + 2;
+        const textX = 110;
+        if (block.type === 'ordered_list') {
+          document
+            .font('Helvetica')
+            .fontSize(10.5)
+            .fillColor('#172033')
+            .text(`${index + 1}.`, 76, top, {
+              width: 24,
+              align: 'right',
+              lineBreak: false,
+            });
+        } else {
+          document.circle(91, top + 5.5, 1.6).fill('#172033');
+        }
+        document.y = top;
+        document.font('Helvetica').fontSize(10.5).fillColor('#172033');
+        this.pdfInlineText(document, item, {
+          x: textX,
+          y: top,
+          width: textWidth,
+          paragraphGap: 2,
+          lineGap: 3,
+        });
       });
       document.moveDown(0.35);
       return;
@@ -651,15 +686,47 @@ export class ExportRendererService {
       document.y = top + height + 8;
       return;
     }
-    document
-      .font('Helvetica')
-      .fontSize(10.5)
-      .fillColor('#172033')
-      .text(plainInlineText(block.text ?? ''), {
-        align: 'left',
-        lineGap: 3,
-        paragraphGap: 7,
-      });
+    document.font('Helvetica').fontSize(10.5).fillColor('#172033');
+    this.pdfInlineText(document, block.text ?? '', {
+      align: 'left',
+      lineGap: 3,
+      paragraphGap: 7,
+    });
+  }
+
+  private pdfInlineText(
+    document: PDFKit.PDFDocument,
+    value: string,
+    options: {
+      x?: number;
+      y?: number;
+      width?: number;
+      align?: 'left' | 'center' | 'right' | 'justify';
+      lineGap?: number;
+      paragraphGap?: number;
+    } = {},
+  ): void {
+    const segments = inlineSegments(value);
+    segments.forEach((segment, index) => {
+      const last = index === segments.length - 1;
+      const textOptions = {
+        width: options.width,
+        align: options.align,
+        lineGap: options.lineGap,
+        paragraphGap: last ? options.paragraphGap : 0,
+        continued: !last,
+        ...(segment.type === 'link'
+          ? { link: segment.url, underline: true }
+          : {}),
+      };
+      document.fillColor(segment.type === 'link' ? '#0B67B2' : '#172033');
+      const text = segment.type === 'link' ? segment.label : segment.value;
+      if (index === 0 && options.x !== undefined) {
+        document.text(text, options.x, options.y ?? document.y, textOptions);
+      } else {
+        document.text(text, textOptions);
+      }
+    });
   }
 }
 
@@ -742,6 +809,12 @@ function plainInlineText(value: string): string {
         ? segment.value
         : `${segment.label} (${segment.url})`,
     )
+    .join('');
+}
+
+function plainInlineLabel(value: string): string {
+  return inlineSegments(value)
+    .map((segment) => (segment.type === 'text' ? segment.value : segment.label))
     .join('');
 }
 
