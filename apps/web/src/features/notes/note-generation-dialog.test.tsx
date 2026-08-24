@@ -63,4 +63,41 @@ describe("NoteGenerationDialog", () => {
 
     await waitFor(() => expect(onGenerate).toHaveBeenCalledOnce());
   });
+
+  it("no reintenta automáticamente después de un error y permite reintento manual", async () => {
+    const firstAttempt = vi
+      .fn()
+      .mockRejectedValue(new Error("La generación no se completó."));
+    const retry = vi.fn().mockResolvedValue({
+      proposalCount: 1,
+      costMicros: 1_000,
+    });
+    const { rerender } = render(
+      <NoteGenerationDialog
+        open
+        autoStart
+        onOpenChange={vi.fn()}
+        onGenerate={firstAttempt}
+      />,
+    );
+
+    expect(
+      await screen.findByText("La generación no se completó."),
+    ).toBeVisible();
+    expect(firstAttempt).toHaveBeenCalledOnce();
+
+    rerender(
+      <NoteGenerationDialog
+        open
+        autoStart
+        onOpenChange={vi.fn()}
+        onGenerate={retry}
+      />,
+    );
+    await act(async () => undefined);
+    expect(retry).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Investigar y redactar" }));
+    await waitFor(() => expect(retry).toHaveBeenCalledOnce());
+  });
 });

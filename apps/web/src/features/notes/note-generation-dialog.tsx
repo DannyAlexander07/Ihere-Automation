@@ -72,7 +72,6 @@ export function NoteGenerationDialog({
           ? reason.message
           : "No pudimos generar el borrador.",
       );
-      startedRef.current = false;
     } finally {
       setGenerating(false);
     }
@@ -158,7 +157,12 @@ export function NoteGenerationDialog({
               >
                 Cancelar
               </Button>
-              <Button onClick={() => void generate()}>
+              <Button
+                onClick={() => {
+                  startedRef.current = false;
+                  void generate();
+                }}
+              >
                 <Sparkles />
                 {revisionFeedback
                   ? "Preparar nueva versión"
