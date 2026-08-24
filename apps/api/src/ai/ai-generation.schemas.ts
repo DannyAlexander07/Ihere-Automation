@@ -410,4 +410,9 @@ export function verifiedResearchFromCurrentDraft(
     citations: snapshot.note.currentDraft.sources,
   });
 }
+
+export function noteGenerationHasClientFeedback(value: unknown) {
+  const parsed = noteGenerationSnapshotSchema.safeParse(value);
+  return parsed.success && parsed.data.clientFeedback !== null;
+}
 export type WebResearchRecord = z.infer<typeof webResearchRecordSchema>;

@@ -47,6 +47,7 @@ import {
   type NoteAuditOutput,
   type NoteDraftOutput,
   type NoteGenerationSnapshot,
+  noteGenerationHasClientFeedback,
   verifiedResearchFromCurrentDraft,
   webResearchRecordSchema,
   type WebResearchRecord,
@@ -1299,6 +1300,7 @@ export class AiGenerationProcessorService {
     noteId: string | null;
     baseVersion: number | null;
     tenantId: string;
+    inputSnapshot?: Prisma.JsonValue;
   }) {
     if (!run.noteId || !run.baseVersion) return;
     await this.prisma.noteDocument.updateMany({
@@ -1308,7 +1310,11 @@ export class AiGenerationProcessorService {
         currentVersion: run.baseVersion,
         status: NoteStatus.GENERATING,
       },
-      data: { status: NoteStatus.DRAFT },
+      data: {
+        status: noteGenerationHasClientFeedback(run.inputSnapshot)
+          ? NoteStatus.CHANGES_REQUESTED
+          : NoteStatus.DRAFT,
+      },
     });
   }
 

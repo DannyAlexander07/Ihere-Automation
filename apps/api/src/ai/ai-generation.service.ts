@@ -516,7 +516,9 @@ export class AiGenerationService {
       throw new ConflictException('La nota no tiene una versión base.');
     const latestClientDecision = note.clientReviewLinks[0]?.decision;
     const clientFeedback =
-      note.status === NoteStatus.CHANGES_REQUESTED && latestClientDecision
+      (note.status === NoteStatus.CHANGES_REQUESTED ||
+        note.status === NoteStatus.DRAFT) &&
+      latestClientDecision
         ? {
             type: latestClientDecision.type,
             reason: latestClientDecision.reason,

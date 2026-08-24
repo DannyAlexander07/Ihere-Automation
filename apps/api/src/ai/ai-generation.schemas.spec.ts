@@ -2,6 +2,7 @@ import { zodTextFormat } from 'openai/helpers/zod';
 import {
   finalizeTitleBriefSuggestion,
   noteDraftSchema,
+  noteGenerationHasClientFeedback,
   noteGenerationSnapshotSchema,
   titleBriefSnapshotSchema,
   titleGenerationSnapshotSchema,
@@ -260,5 +261,12 @@ describe('esquemas de generación inteligente', () => {
         },
       ],
     });
+    expect(noteGenerationHasClientFeedback(snapshot)).toBe(true);
+    expect(
+      noteGenerationHasClientFeedback({
+        ...snapshot,
+        clientFeedback: null,
+      }),
+    ).toBe(false);
   });
 });
