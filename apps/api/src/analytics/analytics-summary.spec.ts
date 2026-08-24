@@ -62,6 +62,41 @@ describe('buildAnalyticsSummary', () => {
     expect(summary.metrics.clicks.changePercent).toBe(0);
   });
 
+  it('limita el informe editorial al blog y conserva sus totales no duplicados', () => {
+    const summary = buildAnalyticsSummary(
+      {
+        status: AnalyticsConnectionStatus.CONNECTED,
+        lastSyncCompletedAt: currentEnd,
+        ga4PropertyId: '123456',
+        gscSiteUrl: 'https://www.adecco.com/es-pe/',
+      },
+      { days: 7, currentStart, currentEnd, previousStart, previousEnd },
+      [
+        ga4('2026-08-01', '__IHERE_TOTAL__', 90, 70, 130),
+        ga4('2026-08-01', '/es-pe/blog/a', 70, 60, 100),
+        ga4('2026-08-01', '/es-pe/blog/b', 50, 45, 80),
+        ga4('2026-08-01', '/es-pe/servicios', 200, 160, 300),
+      ],
+      [
+        gsc('2026-08-01', '__IHERE_TOTAL__', '__IHERE_TOTAL__', 25, 250, 4),
+        gsc('2026-08-01', '/es-pe/blog/a', 'empleo', 20, 200, 3),
+        gsc('2026-08-01', '/es-pe/servicios', 'servicios', 80, 800, 2),
+      ],
+      'BLOG',
+    );
+
+    expect(summary.metrics.sessions.current).toBe(90);
+    expect(summary.metrics.activeUsers.current).toBe(70);
+    expect(summary.metrics.clicks.current).toBe(25);
+    expect(summary.topPages).toEqual([
+      expect.objectContaining({ pagePath: '/es-pe/blog/a' }),
+      expect.objectContaining({ pagePath: '/es-pe/blog/b' }),
+    ]);
+    expect(summary.topQueries).toEqual([
+      expect.objectContaining({ query: 'empleo' }),
+    ]);
+  });
+
   it('combina GA4 y GSC por artículo y diferencia notas de I HERE del histórico', () => {
     const pages = buildPagePerformance(
       { gscSiteUrl: 'https://www.adecco.com/es-pe/' },

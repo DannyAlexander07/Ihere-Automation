@@ -1327,7 +1327,7 @@ export function buildAnalyticsSummary(
     scope === 'BLOG'
       ? ga4.filter(
           (row) =>
-            row.pagePath !== TOTAL_MARKER &&
+            row.pagePath === TOTAL_MARKER ||
             isBlogPage(normalizedPagePath(row.pagePath)),
         )
       : ga4;
@@ -1335,7 +1335,7 @@ export function buildAnalyticsSummary(
     scope === 'BLOG'
       ? gsc.filter(
           (row) =>
-            row.page !== TOTAL_MARKER &&
+            row.page === TOTAL_MARKER ||
             isBlogPage(normalizedPagePath(row.page)),
         )
       : gsc;

@@ -139,6 +139,26 @@ describe('GoogleAnalyticsProviderService', () => {
       }),
     ]);
     expect(fetchMock).toHaveBeenCalledTimes(2);
+    const totalsBody = JSON.parse(
+      fetchMock.mock.calls[0]?.[1]?.body as string,
+    ) as {
+      dimensionFilter: {
+        filter: {
+          fieldName: string;
+          stringFilter: { matchType: string; value: string };
+        };
+      };
+    };
+    expect(totalsBody.dimensionFilter).toEqual({
+      filter: {
+        fieldName: 'pagePath',
+        stringFilter: {
+          matchType: 'CONTAINS',
+          value: '/blog',
+          caseSensitive: false,
+        },
+      },
+    });
     for (const [, init] of fetchMock.mock.calls) {
       expect(typeof init?.body).toBe('string');
       const body = JSON.parse(init?.body as string) as {
@@ -148,5 +168,76 @@ describe('GoogleAnalyticsProviderService', () => {
         'userEngagementDuration',
       );
     }
+  });
+
+  it('limita el total de Search Console a las URLs del blog', async () => {
+    const fetchMock = jest
+      .spyOn(global, 'fetch')
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            rows: [
+              {
+                keys: ['2026-08-20'],
+                clicks: 12,
+                impressions: 240,
+                ctr: 0.05,
+                position: 4,
+              },
+            ],
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            rows: [
+              {
+                keys: [
+                  '2026-08-20',
+                  'https://www.adecco.com/es-pe/blog/empleo',
+                  'empleos peru',
+                ],
+                clicks: 8,
+                impressions: 160,
+                ctr: 0.05,
+                position: 3,
+              },
+            ],
+          }),
+          { status: 200 },
+        ),
+      );
+    const service = new GoogleAnalyticsProviderService(
+      new ConfigService({ ANALYTICS_ENABLED: true }),
+    );
+
+    const rows = await service.gscMetrics({
+      accessToken: 'access-token',
+      siteUrl: 'https://www.adecco.com/es-pe/',
+      startDate: '2026-08-20',
+      endDate: '2026-08-20',
+    });
+
+    expect(rows[0]).toMatchObject({
+      page: '__IHERE_TOTAL__',
+      query: '__IHERE_TOTAL__',
+      clicks: 12,
+    });
+    const totalsBody = JSON.parse(
+      fetchMock.mock.calls[0]?.[1]?.body as string,
+    ) as { dimensionFilterGroups: unknown[] };
+    expect(totalsBody.dimensionFilterGroups).toEqual([
+      {
+        filters: [
+          {
+            dimension: 'page',
+            operator: 'contains',
+            expression: '/blog',
+          },
+        ],
+      },
+    ]);
   });
 });

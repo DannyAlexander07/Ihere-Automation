@@ -269,6 +269,16 @@ export class GoogleAnalyticsProviderService {
             { name: 'userEngagementDuration' },
             { name: 'keyEvents' },
           ],
+          dimensionFilter: {
+            filter: {
+              fieldName: 'pagePath',
+              stringFilter: {
+                matchType: 'CONTAINS',
+                value: '/blog',
+                caseSensitive: false,
+              },
+            },
+          },
           limit: 100_000,
           keepEmptyRows: false,
         }),
@@ -366,6 +376,17 @@ export class GoogleAnalyticsProviderService {
           startDate: input.startDate,
           endDate: input.endDate,
           dimensions: ['date'],
+          dimensionFilterGroups: [
+            {
+              filters: [
+                {
+                  dimension: 'page',
+                  operator: 'contains',
+                  expression: '/blog',
+                },
+              ],
+            },
+          ],
           type: 'web',
           dataState: 'final',
           rowLimit: pageSize,
