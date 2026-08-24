@@ -526,20 +526,7 @@ export class ExportRendererService {
           .text('Conocer más', { link: input.ctaUrl, underline: true });
       document.y = top + height + 14;
     }
-    const referencesHeight =
-      52 +
-      input.sources.reduce(
-        (height, source, index) =>
-          height +
-          document.heightOfString(
-            `${index + 1}. ${source.title} - ${source.entity}.`,
-            { width: bodyWidth, lineGap: 2 },
-          ) +
-          31,
-        0,
-      ) +
-      (input.internalLinks.length ? 42 + input.internalLinks.length * 18 : 0);
-    ensurePdfSpace(document, Math.min(referencesHeight, 500));
+    ensurePdfSpace(document, 110);
     document
       .moveDown(0.6)
       .font('Helvetica-Bold')
