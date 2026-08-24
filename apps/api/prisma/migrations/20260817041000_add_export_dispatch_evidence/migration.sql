@@ -1,0 +1,6 @@
+ALTER TABLE "ExportArtifact"
+ADD COLUMN "sentToEmail" VARCHAR(254),
+ADD COLUMN "sentByEmail" VARCHAR(254),
+ADD COLUMN "emailSubject" VARCHAR(300),
+ADD COLUMN "externalMessageId" VARCHAR(300),
+ADD COLUMN "sentAt" TIMESTAMPTZ(3);

@@ -1,0 +1,30 @@
+# syntax=docker/dockerfile:1.7
+FROM node:22-alpine AS base
+ENV PNPM_HOME=/pnpm
+ENV PATH=$PNPM_HOME:$PATH
+RUN corepack enable
+WORKDIR /app
+
+FROM base AS dependencies
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY apps/api/package.json apps/api/package.json
+COPY apps/web/package.json apps/web/package.json
+RUN pnpm install --frozen-lockfile
+
+FROM dependencies AS builder
+COPY apps/api apps/api
+RUN DATABASE_URL=postgresql://build:build-only@localhost:5432/build pnpm --filter api db:generate
+RUN pnpm --filter api build
+RUN pnpm --filter api deploy --prod --legacy /prod/api \
+    && cp -R apps/api/dist /prod/api/dist \
+    && cp -R apps/api/prisma /prod/api/prisma
+
+FROM node:22-alpine AS runner
+ENV NODE_ENV=production
+WORKDIR /app
+RUN addgroup --system --gid 1001 ihere && adduser --system --uid 1001 --ingroup ihere ihere
+COPY --from=builder --chown=ihere:ihere /prod/api ./
+RUN mkdir -p /app/storage && chown ihere:ihere /app/storage
+USER ihere
+EXPOSE 4100
+CMD ["node", "dist/main.js"]

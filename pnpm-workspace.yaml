@@ -1,0 +1,15 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+
+overrides:
+  "js-yaml@>=5.0.0 <=5.2.1": "5.3.0"
+
+allowBuilds:
+  '@prisma/engines': true
+  '@scarf/scarf': false
+  esbuild: true
+  msgpackr-extract: true
+  prisma: true
+  sharp: false
+  unrs-resolver: false

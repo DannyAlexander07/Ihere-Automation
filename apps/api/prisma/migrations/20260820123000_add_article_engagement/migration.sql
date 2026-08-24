@@ -1,0 +1,2 @@
+ALTER TABLE "Ga4PageMetric"
+ADD COLUMN "userEngagementDuration" DOUBLE PRECISION NOT NULL DEFAULT 0;

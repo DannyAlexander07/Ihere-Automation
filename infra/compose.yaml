@@ -1,0 +1,37 @@
+name: ihere-local
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ihere
+      POSTGRES_USER: ihere
+      POSTGRES_PASSWORD: ihere_local_only
+    ports:
+      - "127.0.0.1:54329:5432"
+    volumes:
+      - ihere_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ihere -d ihere"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "127.0.0.1:63799:6379"
+    volumes:
+      - ihere_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    restart: unless-stopped
+
+volumes:
+  ihere_postgres_data:
+  ihere_redis_data:

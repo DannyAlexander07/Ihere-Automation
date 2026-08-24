@@ -1,0 +1,1326 @@
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  DISABLED
+}
+
+enum TitleStatus {
+  DRAFT
+  PROPOSED
+  EVALUATING
+  CHANGES_REQUESTED
+  APPROVED
+  REJECTED
+  USED
+  ARCHIVED
+}
+
+enum DuplicateResolution {
+  PENDING
+  UNIQUE
+  CREATE_NEW
+  COMPLEMENT
+  UPDATE_EXISTING
+  MERGE
+  DISCARD
+}
+
+enum TitleDecisionType {
+  APPROVE
+  REJECT
+  REQUEST_CHANGES
+  MARK_USED
+  RESOLVE_DUPLICATE
+}
+
+enum EvaluationVerdict {
+  PASS
+  REVIEW
+  BLOCK
+  ERROR
+}
+
+enum EvaluationStatus {
+  QUEUED
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum AgentType {
+  SEO_STRATEGIST
+  BRAND_EDITOR
+  RESEARCHER
+  GEO_AEO_AUDITOR
+  DUPLICATE_DETECTOR
+  NORMATIVE_AUDITOR
+  QA_EDITOR
+  JUDGE
+}
+
+enum CorrectionType {
+  INTENT
+  SEO
+  BRAND
+  FACTUAL
+  STYLE
+  COMPLIANCE
+  DUPLICATION
+  OTHER
+}
+
+enum VersionSource {
+  HUMAN
+  AI_ASSISTED
+  IMPORT
+  SYSTEM
+}
+
+enum LearningRuleStatus {
+  DRAFT
+  ACTIVE
+  RETIRED
+}
+
+enum ClientReviewLinkStatus {
+  ACTIVE
+  COMPLETED
+  REVOKED
+  EXPIRED
+}
+
+enum ClientReviewDecisionType {
+  APPROVE
+  REQUEST_CHANGES
+  REJECT
+}
+
+enum NoteImageStatus {
+  PROPOSED
+  APPROVED
+  CHANGES_REQUESTED
+  REJECTED
+}
+
+enum AuditActorType {
+  USER
+  SYSTEM
+  SERVICE
+}
+
+enum OutboxJobStatus {
+  PENDING
+  DISPATCHING
+  DISPATCHED
+  FAILED
+}
+
+enum NoteStatus {
+  DRAFT
+  GENERATING
+  QA_QUEUED
+  QA_RUNNING
+  CHANGES_REQUESTED
+  READY_FOR_REVIEW
+  APPROVED
+  REJECTED
+  EXPORTED
+  ARCHIVED
+}
+
+enum NoteDecisionType {
+  REQUEST_CHANGES
+  APPROVE
+  REJECT
+}
+
+enum NoteQaDimension {
+  INTENT_UTILITY
+  ORIGINALITY_EVIDENCE
+  ORGANIZATION_CLARITY
+  SEO_EDITORIAL
+  GEO_AEO_CITABILITY
+  ACTION_ORIENTATION
+  FINAL_QUALITY
+}
+
+enum NoteSourceType {
+  PRIMARY
+  ADECCO_KNOWLEDGE
+  RECOGNIZED_SECONDARY
+  CONTEXT
+}
+
+enum ExportFormat {
+  HTML
+  DOCX
+  PDF
+}
+
+enum ExportStatus {
+  QUEUED
+  GENERATING
+  READY
+  FAILED
+  INVALID
+}
+
+enum AiGenerationKind {
+  TITLE_BRIEF
+  TITLE_PROPOSALS
+  TITLE_REVISION
+  NOTE_DRAFT
+}
+
+enum AiGenerationStatus {
+  QUEUED
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+  BUDGET_BLOCKED
+}
+
+enum AnalyticsConnectionStatus {
+  CONNECTED
+  ERROR
+  REVOKED
+}
+
+enum AnalyticsSyncStatus {
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+enum ResultsPortalLinkStatus {
+  ACTIVE
+  REVOKED
+  EXPIRED
+}
+
+enum ContentPublicationSource {
+  AUTO_DETECTED
+  MANUAL
+}
+
+enum ContentPublicationStatus {
+  PENDING_CONFIRMATION
+  CONFIRMED
+  ARCHIVED
+}
+
+model Tenant {
+  id                      String                   @id @default(uuid()) @db.Uuid
+  code                    String                   @unique @db.VarChar(40)
+  name                    String                   @db.VarChar(160)
+  active                  Boolean                  @default(true)
+  createdAt               DateTime                 @default(now()) @db.Timestamptz(3)
+  updatedAt               DateTime                 @updatedAt @db.Timestamptz(3)
+  clients                 Client[]
+  users                   User[]
+  roles                   Role[]
+  sessions                Session[]
+  titleProposals          TitleProposal[]
+  learningRules           LearningRule[]
+  correctionSignals       CorrectionSignal[]
+  auditLogs               AuditLog[]
+  idempotencyRecords      IdempotencyRecord[]
+  outboxJobs              OutboxJob[]
+  notes                   NoteDocument[]
+  aiGenerationRuns        AiGenerationRun[]
+  clientReviewLinks       ClientReviewLink[]
+  titleReviewLinks        TitleReviewLink[]
+  titlePackageReviewLinks TitlePackageReviewLink[]
+  notePackageReviewLinks  NotePackageReviewLink[]
+  noteImageProposals      NoteImageProposal[]
+  analyticsConnections    AnalyticsConnection[]
+  analyticsOAuthStates    AnalyticsOAuthState[]
+  analyticsSyncRuns       AnalyticsSyncRun[]
+  ga4PageMetrics          Ga4PageMetric[]
+  gscSearchMetrics        GscSearchMetric[]
+  resultsPortalLinks      ResultsPortalLink[]
+  contentPublications     ContentPublication[]
+}
+
+model Client {
+  id                      String                   @id @default(uuid()) @db.Uuid
+  tenantId                String                   @db.Uuid
+  slug                    String                   @db.VarChar(80)
+  name                    String                   @db.VarChar(160)
+  active                  Boolean                  @default(true)
+  createdAt               DateTime                 @default(now()) @db.Timestamptz(3)
+  updatedAt               DateTime                 @updatedAt @db.Timestamptz(3)
+  tenant                  Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  userRoles               UserRole[]
+  titleProposals          TitleProposal[]
+  learningRules           LearningRule[]
+  correctionSignals       CorrectionSignal[]
+  auditLogs               AuditLog[]
+  notes                   NoteDocument[]
+  aiGenerationRuns        AiGenerationRun[]
+  clientReviewLinks       ClientReviewLink[]
+  titleReviewLinks        TitleReviewLink[]
+  titlePackageReviewLinks TitlePackageReviewLink[]
+  notePackageReviewLinks  NotePackageReviewLink[]
+  noteImageProposals      NoteImageProposal[]
+  analyticsConnections    AnalyticsConnection[]
+  analyticsOAuthStates    AnalyticsOAuthState[]
+  analyticsSyncRuns       AnalyticsSyncRun[]
+  ga4PageMetrics          Ga4PageMetric[]
+  gscSearchMetrics        GscSearchMetric[]
+  resultsPortalLinks      ResultsPortalLink[]
+  contentPublications     ContentPublication[]
+  workspaces              ClientWorkspace[]
+
+  @@unique([tenantId, slug])
+  @@index([tenantId, active])
+}
+
+model ClientWorkspace {
+  id         String   @id @default(uuid()) @db.Uuid
+  clientId   String   @db.Uuid
+  moduleCode String   @db.VarChar(80)
+  active     Boolean  @default(true)
+  settings   Json?
+  createdAt  DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt  DateTime @updatedAt @db.Timestamptz(3)
+  client     Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, moduleCode])
+  @@index([moduleCode, active])
+}
+
+model User {
+  id                             String                   @id @default(uuid()) @db.Uuid
+  tenantId                       String                   @db.Uuid
+  loginAliasDigest               String                   @db.Char(64)
+  displayName                    String                   @db.VarChar(160)
+  email                          String?                  @db.VarChar(254)
+  passwordHash                   String                   @db.Text
+  status                         UserStatus               @default(ACTIVE)
+  mfaRequired                    Boolean                  @default(false)
+  authVersion                    Int                      @default(1)
+  lastLoginAt                    DateTime?                @db.Timestamptz(3)
+  createdAt                      DateTime                 @default(now()) @db.Timestamptz(3)
+  updatedAt                      DateTime                 @updatedAt @db.Timestamptz(3)
+  tenant                         Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  roles                          UserRole[]               @relation("UserRoleSubject")
+  grantedRoles                   UserRole[]               @relation("UserRoleGrantor")
+  sessions                       Session[]
+  createdTitles                  TitleProposal[]          @relation("TitleCreatedBy")
+  approvedTitles                 TitleProposal[]          @relation("TitleApprovedBy")
+  titleVersions                  TitleVersion[]
+  evaluations                    TitleEvaluation[]
+  titleDecisions                 TitleDecision[]
+  correctionSignals              CorrectionSignal[]
+  approvedRules                  LearningRule[]           @relation("RuleApprovedBy")
+  auditLogs                      AuditLog[]
+  createdNotes                   NoteDocument[]           @relation("NoteCreatedBy")
+  approvedNotes                  NoteDocument[]           @relation("NoteApprovedBy")
+  noteVersions                   NoteVersion[]
+  noteDecisions                  NoteDecision[]
+  requestedNoteQas               NoteQaEvaluation[]       @relation("NoteQaRequestedBy")
+  createdExports                 ExportArtifact[]         @relation("ExportCreatedBy")
+  verifiedExports                ExportArtifact[]         @relation("ExportVerifiedBy")
+  requestedAiRuns                AiGenerationRun[]        @relation("AiRunRequestedBy")
+  createdReviewLinks             ClientReviewLink[]       @relation("ReviewLinkCreatedBy")
+  revokedReviewLinks             ClientReviewLink[]       @relation("ReviewLinkRevokedBy")
+  createdTitleReviewLinks        TitleReviewLink[]        @relation("TitleReviewLinkCreatedBy")
+  revokedTitleReviewLinks        TitleReviewLink[]        @relation("TitleReviewLinkRevokedBy")
+  createdTitlePackageReviewLinks TitlePackageReviewLink[] @relation("TitlePackageReviewLinkCreatedBy")
+  revokedTitlePackageReviewLinks TitlePackageReviewLink[] @relation("TitlePackageReviewLinkRevokedBy")
+  createdNotePackageReviewLinks  NotePackageReviewLink[]  @relation("NotePackageReviewLinkCreatedBy")
+  revokedNotePackageReviewLinks  NotePackageReviewLink[]  @relation("NotePackageReviewLinkRevokedBy")
+  createdNoteImageProposals      NoteImageProposal[]      @relation("NoteImageProposalCreatedBy")
+  approvedNoteImageProposals     NoteImageProposal[]      @relation("NoteImageProposalApprovedBy")
+  createdAnalyticsConnections    AnalyticsConnection[]    @relation("AnalyticsConnectionCreatedBy")
+  requestedAnalyticsOAuthStates  AnalyticsOAuthState[]    @relation("AnalyticsOAuthRequestedBy")
+  requestedAnalyticsSyncRuns     AnalyticsSyncRun[]       @relation("AnalyticsSyncRequestedBy")
+  createdResultsPortalLinks      ResultsPortalLink[]      @relation("ResultsPortalLinkCreatedBy")
+  revokedResultsPortalLinks      ResultsPortalLink[]      @relation("ResultsPortalLinkRevokedBy")
+  createdContentPublications     ContentPublication[]     @relation("ContentPublicationCreatedBy")
+  confirmedContentPublications   ContentPublication[]     @relation("ContentPublicationConfirmedBy")
+
+  @@unique([tenantId, loginAliasDigest])
+  @@unique([tenantId, email])
+  @@index([tenantId, status])
+}
+
+model Role {
+  id              String           @id @default(uuid()) @db.Uuid
+  tenantId        String           @db.Uuid
+  code            String           @db.VarChar(80)
+  name            String           @db.VarChar(120)
+  description     String?          @db.VarChar(300)
+  isSystem        Boolean          @default(false)
+  createdAt       DateTime         @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime         @updatedAt @db.Timestamptz(3)
+  tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  users           UserRole[]
+  rolePermissions RolePermission[]
+
+  @@unique([tenantId, code])
+}
+
+model Permission {
+  id          String           @id @default(uuid()) @db.Uuid
+  code        String           @unique @db.VarChar(120)
+  description String           @db.VarChar(240)
+  roles       RolePermission[]
+}
+
+model UserRole {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  roleId    String   @db.Uuid
+  clientId  String?  @db.Uuid
+  grantedAt DateTime @default(now()) @db.Timestamptz(3)
+  grantedBy String?  @db.Uuid
+  user      User     @relation("UserRoleSubject", fields: [userId], references: [id], onDelete: Cascade)
+  grantor   User?    @relation("UserRoleGrantor", fields: [grantedBy], references: [id], onDelete: SetNull)
+  role      Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  client    Client?  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId, clientId])
+  @@index([roleId])
+  @@index([clientId])
+}
+
+model RolePermission {
+  roleId       String     @db.Uuid
+  permissionId String     @db.Uuid
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+}
+
+model Session {
+  id                    String                 @id @default(uuid()) @db.Uuid
+  tenantId              String                 @db.Uuid
+  userId                String                 @db.Uuid
+  refreshTokenDigest    String                 @unique @db.Char(64)
+  expiresAt             DateTime               @db.Timestamptz(3)
+  lastUsedAt            DateTime?              @db.Timestamptz(3)
+  revokedAt             DateTime?              @db.Timestamptz(3)
+  ipAddress             String?                @db.VarChar(64)
+  userAgent             String?                @db.VarChar(500)
+  createdAt             DateTime               @default(now()) @db.Timestamptz(3)
+  tenant                Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user                  User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  consumedRefreshTokens ConsumedRefreshToken[]
+
+  @@index([tenantId, userId, expiresAt])
+}
+
+model ConsumedRefreshToken {
+  id         String   @id @default(uuid()) @db.Uuid
+  sessionId  String   @db.Uuid
+  digest     String   @unique @db.Char(64)
+  consumedAt DateTime @default(now()) @db.Timestamptz(3)
+  session    Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, consumedAt])
+}
+
+model TitleProposal {
+  id                      String                   @id @default(uuid()) @db.Uuid
+  tenantId                String                   @db.Uuid
+  clientId                String                   @db.Uuid
+  title                   String                   @db.VarChar(220)
+  canonicalTitle          String                   @db.VarChar(220)
+  slug                    String?                  @db.VarChar(240)
+  objective               String                   @db.VarChar(600)
+  audience                String                   @db.VarChar(300)
+  searchIntent            String                   @db.VarChar(300)
+  focus                   String                   @db.VarChar(500)
+  opportunity             String?                  @db.VarChar(600)
+  risk                    String?                  @db.VarChar(600)
+  status                  TitleStatus              @default(DRAFT)
+  duplicateScore          Int                      @default(0)
+  duplicateResolution     DuplicateResolution      @default(PENDING)
+  duplicateOfId           String?                  @db.Uuid
+  currentVersion          Int                      @default(1)
+  createdById             String                   @db.Uuid
+  generationRunId         String?                  @db.Uuid
+  approvedById            String?                  @db.Uuid
+  approvedAt              DateTime?                @db.Timestamptz(3)
+  createdAt               DateTime                 @default(now()) @db.Timestamptz(3)
+  updatedAt               DateTime                 @updatedAt @db.Timestamptz(3)
+  tenant                  Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  client                  Client                   @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  createdBy               User                     @relation("TitleCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  approvedBy              User?                    @relation("TitleApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+  duplicateOf             TitleProposal?           @relation("TitleDuplicates", fields: [duplicateOfId], references: [id], onDelete: SetNull)
+  duplicates              TitleProposal[]          @relation("TitleDuplicates")
+  versions                TitleVersion[]
+  evaluations             TitleEvaluation[]
+  decisions               TitleDecision[]
+  correctionSignals       CorrectionSignal[]
+  note                    NoteDocument?
+  generationRun           AiGenerationRun?         @relation("GeneratedTitleProposals", fields: [generationRunId], references: [id], onDelete: SetNull)
+  revisionRuns            AiGenerationRun[]        @relation("TitleRevisionRuns")
+  titleReviewLinks        TitleReviewLink[]
+  titlePackageReviewItems TitlePackageReviewItem[]
+
+  @@index([tenantId, clientId, status])
+  @@index([clientId, canonicalTitle])
+  @@index([duplicateOfId])
+  @@index([generationRunId])
+}
+
+model TitleVersion {
+  id             String             @id @default(uuid()) @db.Uuid
+  proposalId     String             @db.Uuid
+  version        Int
+  title          String             @db.VarChar(220)
+  objective      String             @db.VarChar(600)
+  audience       String             @db.VarChar(300)
+  searchIntent   String             @db.VarChar(300)
+  focus          String             @db.VarChar(500)
+  opportunity    String?            @db.VarChar(600)
+  risk           String?            @db.VarChar(600)
+  source         VersionSource
+  correctionType CorrectionType?
+  changeReason   String?            @db.VarChar(800)
+  createdById    String             @db.Uuid
+  createdAt      DateTime           @default(now()) @db.Timestamptz(3)
+  proposal       TitleProposal      @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  createdBy      User               @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  corrections    CorrectionSignal[]
+
+  @@unique([proposalId, version])
+}
+
+model TitleEvaluation {
+  id            String             @id @default(uuid()) @db.Uuid
+  proposalId    String             @db.Uuid
+  version       Int
+  status        EvaluationStatus   @default(QUEUED)
+  verdict       EvaluationVerdict?
+  overallScore  Int?
+  summary       String?            @db.Text
+  requestedById String             @db.Uuid
+  startedAt     DateTime?          @db.Timestamptz(3)
+  completedAt   DateTime?          @db.Timestamptz(3)
+  createdAt     DateTime           @default(now()) @db.Timestamptz(3)
+  proposal      TitleProposal      @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  requestedBy   User               @relation(fields: [requestedById], references: [id], onDelete: Restrict)
+  agentResults  AgentResult[]
+
+  @@index([proposalId, version, status])
+}
+
+model AgentResult {
+  id           String            @id @default(uuid()) @db.Uuid
+  evaluationId String            @db.Uuid
+  agentType    AgentType
+  verdict      EvaluationVerdict
+  score        Int?
+  summary      String            @db.Text
+  findings     Json?
+  evidence     Json?
+  provider     String?           @db.VarChar(80)
+  model        String?           @db.VarChar(120)
+  inputTokens  Int?
+  outputTokens Int?
+  costMicros   BigInt?
+  durationMs   Int?
+  errorCode    String?           @db.VarChar(100)
+  createdAt    DateTime          @default(now()) @db.Timestamptz(3)
+  evaluation   TitleEvaluation   @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
+
+  @@index([evaluationId, agentType])
+}
+
+model TitleDecision {
+  id                  String               @id @default(uuid()) @db.Uuid
+  proposalId          String               @db.Uuid
+  version             Int
+  type                TitleDecisionType
+  reason              String               @db.VarChar(1000)
+  duplicateResolution DuplicateResolution?
+  actorId             String               @db.Uuid
+  metadata            Json?
+  createdAt           DateTime             @default(now()) @db.Timestamptz(3)
+  proposal            TitleProposal        @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  actor               User                 @relation(fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@index([proposalId, version, createdAt])
+}
+
+model CorrectionSignal {
+  id             String         @id @default(uuid()) @db.Uuid
+  tenantId       String         @db.Uuid
+  clientId       String         @db.Uuid
+  proposalId     String         @db.Uuid
+  versionId      String         @db.Uuid
+  field          String         @db.VarChar(80)
+  beforeValue    String         @db.Text
+  afterValue     String         @db.Text
+  reason         String         @db.VarChar(1000)
+  correctionType CorrectionType
+  actorId        String         @db.Uuid
+  promotedRuleId String?        @db.Uuid
+  createdAt      DateTime       @default(now()) @db.Timestamptz(3)
+  tenant         Tenant         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  client         Client         @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  proposal       TitleProposal  @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  version        TitleVersion   @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  actor          User           @relation(fields: [actorId], references: [id], onDelete: Restrict)
+  promotedRule   LearningRule?  @relation(fields: [promotedRuleId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, clientId, correctionType])
+  @@index([proposalId, versionId])
+}
+
+model LearningRule {
+  id                String             @id @default(uuid()) @db.Uuid
+  tenantId          String             @db.Uuid
+  clientId          String?            @db.Uuid
+  code              String             @db.VarChar(100)
+  title             String             @db.VarChar(180)
+  description       String             @db.Text
+  status            LearningRuleStatus @default(DRAFT)
+  evidenceCount     Int                @default(0)
+  approvedById      String?            @db.Uuid
+  approvedAt        DateTime?          @db.Timestamptz(3)
+  createdAt         DateTime           @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime           @updatedAt @db.Timestamptz(3)
+  tenant            Tenant             @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  client            Client?            @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  approvedBy        User?              @relation("RuleApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+  correctionSignals CorrectionSignal[]
+
+  @@unique([tenantId, clientId, code])
+  @@index([tenantId, clientId, status])
+}
+
+model AuditLog {
+  id         String         @id @default(uuid()) @db.Uuid
+  tenantId   String         @db.Uuid
+  clientId   String?        @db.Uuid
+  userId     String?        @db.Uuid
+  actorType  AuditActorType
+  action     String         @db.VarChar(160)
+  entityType String         @db.VarChar(100)
+  entityId   String?        @db.VarChar(100)
+  requestId  String?        @db.VarChar(100)
+  ipAddress  String?        @db.VarChar(64)
+  userAgent  String?        @db.VarChar(500)
+  before     Json?
+  after      Json?
+  metadata   Json?
+  createdAt  DateTime       @default(now()) @db.Timestamptz(3)
+  tenant     Tenant         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  client     Client?        @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  user       User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, entityType, entityId])
+  @@index([requestId])
+}
+
+model IdempotencyRecord {
+  id             String   @id @default(uuid()) @db.Uuid
+  tenantId       String   @db.Uuid
+  key            String   @db.VarChar(160)
+  route          String   @db.VarChar(200)
+  requestHash    String   @db.Char(64)
+  responseStatus Int?
+  responseBody   Json?
+  expiresAt      DateTime @db.Timestamptz(3)
+  createdAt      DateTime @default(now()) @db.Timestamptz(3)
+  tenant         Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, route, key])
+  @@index([expiresAt])
+}
+
+model OutboxJob {
+  id            String          @id @default(uuid()) @db.Uuid
+  tenantId      String          @db.Uuid
+  jobType       String          @db.VarChar(100)
+  aggregateType String          @db.VarChar(100)
+  aggregateId   String          @db.VarChar(100)
+  payload       Json
+  status        OutboxJobStatus @default(PENDING)
+  attempts      Int             @default(0)
+  availableAt   DateTime        @default(now()) @db.Timestamptz(3)
+  dispatchedAt  DateTime?       @db.Timestamptz(3)
+  lastError     String?         @db.Text
+  createdAt     DateTime        @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime        @updatedAt @db.Timestamptz(3)
+  tenant        Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([jobType, aggregateType, aggregateId])
+  @@index([status, availableAt])
+  @@index([tenantId, aggregateType, aggregateId])
+}
+
+model NoteDocument {
+  id                  String               @id @default(uuid()) @db.Uuid
+  tenantId            String               @db.Uuid
+  clientId            String               @db.Uuid
+  titleProposalId     String               @unique @db.Uuid
+  status              NoteStatus           @default(DRAFT)
+  currentVersion      Int                  @default(1)
+  briefSnapshot       Json
+  createdById         String               @db.Uuid
+  approvedById        String?              @db.Uuid
+  approvedAt          DateTime?            @db.Timestamptz(3)
+  createdAt           DateTime             @default(now()) @db.Timestamptz(3)
+  updatedAt           DateTime             @updatedAt @db.Timestamptz(3)
+  tenant              Tenant               @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  client              Client               @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  titleProposal       TitleProposal        @relation(fields: [titleProposalId], references: [id], onDelete: Restrict)
+  createdBy           User                 @relation("NoteCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  approvedBy          User?                @relation("NoteApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+  versions            NoteVersion[]
+  decisions           NoteDecision[]
+  qaEvaluations       NoteQaEvaluation[]
+  exports             ExportArtifact[]
+  generationRuns      AiGenerationRun[]
+  clientReviewLinks   ClientReviewLink[]
+  notePackageItems    NotePackageReviewItem[]
+  imageProposals      NoteImageProposal[]
+  contentPublications ContentPublication[]
+
+  @@index([tenantId, clientId, status])
+  @@index([clientId, updatedAt])
+}
+
+model NoteVersion {
+  id              String           @id @default(uuid()) @db.Uuid
+  noteId          String           @db.Uuid
+  version         Int
+  title           String           @db.VarChar(220)
+  metaTitle       String?          @db.VarChar(220)
+  metaDescription String?          @db.VarChar(320)
+  slug            String?          @db.VarChar(240)
+  excerpt         String?          @db.VarChar(800)
+  content         Json
+  wordCount       Int              @default(0)
+  contentHash     String           @db.Char(64)
+  source          VersionSource
+  correctionType  CorrectionType?
+  changeReason    String?          @db.VarChar(1000)
+  authorName      String?          @db.VarChar(160)
+  authorRole      String?          @db.VarChar(160)
+  ctaText         String?          @db.VarChar(300)
+  ctaUrl          String?          @db.VarChar(1000)
+  internalLinks   Json             @default("[]")
+  createdById     String           @db.Uuid
+  generationRunId String?          @db.Uuid
+  createdAt       DateTime         @default(now()) @db.Timestamptz(3)
+  note            NoteDocument     @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  createdBy       User             @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  sources         NoteSource[]
+  generationRun   AiGenerationRun? @relation(fields: [generationRunId], references: [id], onDelete: SetNull)
+
+  @@unique([noteId, version])
+  @@index([noteId, createdAt])
+  @@index([generationRunId])
+}
+
+model NoteSource {
+  id            String         @id @default(uuid()) @db.Uuid
+  noteVersionId String         @db.Uuid
+  type          NoteSourceType
+  title         String         @db.VarChar(300)
+  entity        String         @db.VarChar(200)
+  url           String         @db.VarChar(1200)
+  publishedAt   DateTime?      @db.Date
+  accessedAt    DateTime       @db.Timestamptz(3)
+  noteVersion   NoteVersion    @relation(fields: [noteVersionId], references: [id], onDelete: Cascade)
+
+  @@unique([noteVersionId, url])
+  @@index([noteVersionId, type])
+}
+
+model ClientReviewLink {
+  id                String                 @id @default(uuid()) @db.Uuid
+  tenantId          String                 @db.Uuid
+  clientId          String                 @db.Uuid
+  noteId            String                 @db.Uuid
+  version           Int
+  tokenHash         String                 @unique @db.Char(64)
+  status            ClientReviewLinkStatus @default(ACTIVE)
+  recipientName     String?                @db.VarChar(160)
+  recipientEmail    String?                @db.VarChar(254)
+  expiresAt         DateTime               @db.Timestamptz(3)
+  maxViews          Int                    @default(50)
+  viewCount         Int                    @default(0)
+  lastViewedAt      DateTime?              @db.Timestamptz(3)
+  createdById       String                 @db.Uuid
+  revokedById       String?                @db.Uuid
+  revokedAt         DateTime?              @db.Timestamptz(3)
+  sentByEmail       String?                @db.VarChar(254)
+  emailSubject      String?                @db.VarChar(300)
+  externalMessageId String?                @db.VarChar(500)
+  sentAt            DateTime?              @db.Timestamptz(3)
+  createdAt         DateTime               @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime               @updatedAt @db.Timestamptz(3)
+  tenant            Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  client            Client                 @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  note              NoteDocument           @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  createdBy         User                   @relation("ReviewLinkCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  revokedBy         User?                  @relation("ReviewLinkRevokedBy", fields: [revokedById], references: [id], onDelete: SetNull)
+  decision          ClientReviewDecision?
+
+  @@index([tenantId, clientId, status])
+  @@index([noteId, version, status])
+  @@index([expiresAt, status])
+}
+
+model ClientReviewDecision {
+  id            String                   @id @default(uuid()) @db.Uuid
+  linkId        String                   @unique @db.Uuid
+  type          ClientReviewDecisionType
+  reason        String                   @db.VarChar(2000)
+  reviewerName  String                   @db.VarChar(160)
+  reviewerEmail String                   @db.VarChar(254)
+  ipAddress     String?                  @db.VarChar(64)
+  userAgent     String?                  @db.VarChar(500)
+  createdAt     DateTime                 @default(now()) @db.Timestamptz(3)
+  link          ClientReviewLink         @relation(fields: [linkId], references: [id], onDelete: Cascade)
+}
+
+model NotePackageReviewLink {
+  id                String                 @id @default(uuid()) @db.Uuid
+  tenantId          String                 @db.Uuid
+  clientId          String                 @db.Uuid
+  generationRunId   String                 @db.Uuid
+  tokenHash         String                 @unique @db.Char(64)
+  status            ClientReviewLinkStatus @default(ACTIVE)
+  recipientName     String                 @db.VarChar(160)
+  recipientEmail    String                 @db.VarChar(254)
+  expiresAt         DateTime               @db.Timestamptz(3)
+  maxViews          Int                    @default(100)
+  viewCount         Int                    @default(0)
+  lastViewedAt      DateTime?              @db.Timestamptz(3)
+  createdById       String                 @db.Uuid
+  revokedById       String?                @db.Uuid
+  revokedAt         DateTime?              @db.Timestamptz(3)
+  sentByEmail       String?                @db.VarChar(254)
+  emailSubject      String?                @db.VarChar(300)
+  externalMessageId String?                @db.VarChar(500)
+  sentAt            DateTime?              @db.Timestamptz(3)
+  createdAt         DateTime               @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime               @updatedAt @db.Timestamptz(3)
+  tenant            Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  client            Client                 @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  generationRun     AiGenerationRun        @relation(fields: [generationRunId], references: [id], onDelete: Restrict)
+  createdBy         User                   @relation("NotePackageReviewLinkCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  revokedBy         User?                  @relation("NotePackageReviewLinkRevokedBy", fields: [revokedById], references: [id], onDelete: SetNull)
+  items             NotePackageReviewItem[]
+
+  @@index([tenantId, clientId, status])
+  @@index([generationRunId, status])
+  @@index([expiresAt, status])
+}
+
+model NotePackageReviewItem {
+  id       String                    @id @default(uuid()) @db.Uuid
+  linkId   String                    @db.Uuid
+  noteId   String                    @db.Uuid
+  version  Int
+  position Int
+  link     NotePackageReviewLink     @relation(fields: [linkId], references: [id], onDelete: Cascade)
+  note     NoteDocument              @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  decision NotePackageReviewDecision?
+
+  @@unique([linkId, noteId])
+  @@index([noteId, version])
+}
+
+model NotePackageReviewDecision {
+  id            String                   @id @default(uuid()) @db.Uuid
+  itemId        String                   @unique @db.Uuid
+  type          ClientReviewDecisionType
+  reason        String                   @db.VarChar(2000)
+  reviewerName  String                   @db.VarChar(160)
+  reviewerEmail String                   @db.VarChar(254)
+  ipAddress     String?                  @db.VarChar(64)
+  userAgent     String?                  @db.VarChar(500)
+  createdAt     DateTime                 @default(now()) @db.Timestamptz(3)
+  item          NotePackageReviewItem    @relation(fields: [itemId], references: [id], onDelete: Cascade)
+}
+
+model NoteImageProposal {
+  id             String          @id @default(uuid()) @db.Uuid
+  tenantId       String          @db.Uuid
+  clientId       String          @db.Uuid
+  noteId         String          @db.Uuid
+  version        Int
+  concept        String          @db.VarChar(1000)
+  prompt         String          @db.VarChar(3000)
+  altText        String          @db.VarChar(320)
+  caption        String?         @db.VarChar(600)
+  referenceUrl   String?         @db.VarChar(2048)
+  status         NoteImageStatus @default(PROPOSED)
+  decisionReason String?         @db.VarChar(1000)
+  createdById    String          @db.Uuid
+  approvedById   String?         @db.Uuid
+  approvedAt     DateTime?       @db.Timestamptz(3)
+  createdAt      DateTime        @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime        @updatedAt @db.Timestamptz(3)
+  tenant         Tenant          @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  client         Client          @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  note           NoteDocument    @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  createdBy      User            @relation("NoteImageProposalCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  approvedBy     User?           @relation("NoteImageProposalApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+
+  @@unique([noteId, version])
+  @@index([tenantId, clientId, status])
+}
+
+model NoteQaEvaluation {
+  id               String             @id @default(uuid()) @db.Uuid
+  noteId           String             @db.Uuid
+  version          Int
+  status           EvaluationStatus   @default(QUEUED)
+  verdict          EvaluationVerdict?
+  overallScore     Int?
+  summary          String?            @db.Text
+  criticalBlockers Json?
+  requestedById    String             @db.Uuid
+  startedAt        DateTime?          @db.Timestamptz(3)
+  completedAt      DateTime?          @db.Timestamptz(3)
+  createdAt        DateTime           @default(now()) @db.Timestamptz(3)
+  note             NoteDocument       @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  requestedBy      User               @relation("NoteQaRequestedBy", fields: [requestedById], references: [id], onDelete: Restrict)
+  results          NoteQaResult[]
+
+  @@unique([noteId, version])
+  @@index([status, createdAt])
+}
+
+model NoteQaResult {
+  id           String            @id @default(uuid()) @db.Uuid
+  evaluationId String            @db.Uuid
+  dimension    NoteQaDimension
+  score        Int
+  maxScore     Int
+  verdict      EvaluationVerdict
+  summary      String            @db.Text
+  findings     Json?
+  evidence     Json?
+  ruleVersion  String            @db.VarChar(80)
+  durationMs   Int?
+  createdAt    DateTime          @default(now()) @db.Timestamptz(3)
+  evaluation   NoteQaEvaluation  @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
+
+  @@unique([evaluationId, dimension])
+}
+
+model ExportArtifact {
+  id                String       @id @default(uuid()) @db.Uuid
+  noteId            String       @db.Uuid
+  version           Int
+  format            ExportFormat
+  status            ExportStatus @default(QUEUED)
+  fileName          String?      @db.VarChar(300)
+  storageKey        String?      @db.VarChar(1000)
+  mimeType          String?      @db.VarChar(160)
+  sizeBytes         Int?
+  contentHash       String?      @db.Char(64)
+  errorMessage      String?      @db.Text
+  createdById       String       @db.Uuid
+  verifiedById      String?      @db.Uuid
+  verifiedAt        DateTime?    @db.Timestamptz(3)
+  sentToEmail       String?      @db.VarChar(254)
+  sentByEmail       String?      @db.VarChar(254)
+  emailSubject      String?      @db.VarChar(300)
+  externalMessageId String?      @db.VarChar(300)
+  sentAt            DateTime?    @db.Timestamptz(3)
+  createdAt         DateTime     @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime     @updatedAt @db.Timestamptz(3)
+  note              NoteDocument @relation(fields: [noteId], references: [id], onDelete: Restrict)
+  createdBy         User         @relation("ExportCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  verifiedBy        User?        @relation("ExportVerifiedBy", fields: [verifiedById], references: [id], onDelete: SetNull)
+
+  @@unique([noteId, version, format])
+  @@index([noteId, createdAt])
+  @@index([status, createdAt])
+}
+
+model NoteDecision {
+  id        String           @id @default(uuid()) @db.Uuid
+  noteId    String           @db.Uuid
+  version   Int
+  type      NoteDecisionType
+  reason    String           @db.VarChar(1000)
+  actorId   String           @db.Uuid
+  metadata  Json?
+  createdAt DateTime         @default(now()) @db.Timestamptz(3)
+  note      NoteDocument     @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  actor     User             @relation(fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@index([noteId, version, createdAt])
+}
+
+model AiGenerationRun {
+  id                      String                   @id @default(uuid()) @db.Uuid
+  tenantId                String                   @db.Uuid
+  clientId                String                   @db.Uuid
+  noteId                  String?                  @db.Uuid
+  titleProposalId         String?                  @db.Uuid
+  kind                    AiGenerationKind
+  status                  AiGenerationStatus       @default(QUEUED)
+  requestedById           String                   @db.Uuid
+  baseVersion             Int?
+  provider                String                   @db.VarChar(80)
+  model                   String                   @db.VarChar(120)
+  reasoningEffort         String                   @db.VarChar(20)
+  inputSnapshot           Json
+  output                  Json?
+  campaignYear            Int?
+  campaignMonth           Int?
+  campaignTopic           String?                  @db.VarChar(200)
+  editorialFolderKey      String?                  @db.VarChar(300)
+  inputTokens             Int                      @default(0)
+  cachedInputTokens       Int                      @default(0)
+  outputTokens            Int                      @default(0)
+  webSearchCalls          Int                      @default(0)
+  costMicros              BigInt                   @default(0)
+  budgetLimitMicros       BigInt
+  pricingVersion          String                   @db.VarChar(80)
+  startedAt               DateTime?                @db.Timestamptz(3)
+  completedAt             DateTime?                @db.Timestamptz(3)
+  errorCode               String?                  @db.VarChar(100)
+  errorMessage            String?                  @db.Text
+  createdAt               DateTime                 @default(now()) @db.Timestamptz(3)
+  updatedAt               DateTime                 @updatedAt @db.Timestamptz(3)
+  tenant                  Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  client                  Client                   @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  note                    NoteDocument?            @relation(fields: [noteId], references: [id], onDelete: Restrict)
+  revisionTarget          TitleProposal?           @relation("TitleRevisionRuns", fields: [titleProposalId], references: [id], onDelete: Restrict)
+  requestedBy             User                     @relation("AiRunRequestedBy", fields: [requestedById], references: [id], onDelete: Restrict)
+  agentResults            AiAgentResult[]
+  titleProposals          TitleProposal[]          @relation("GeneratedTitleProposals")
+  noteVersions            NoteVersion[]
+  titlePackageReviewLinks TitlePackageReviewLink[]
+  notePackageReviewLinks  NotePackageReviewLink[]
+
+  @@index([tenantId, clientId, kind, createdAt])
+  @@index([status, createdAt])
+  @@index([noteId, createdAt])
+  @@index([titleProposalId, createdAt])
+  @@index([tenantId, clientId, editorialFolderKey, createdAt], map: "AiGenerationRun_tenantId_clientId_editorialFolderKey_createdAt_")
+}
+
+model AiAgentResult {
+  id                String             @id @default(uuid()) @db.Uuid
+  runId             String             @db.Uuid
+  agentType         AgentType
+  sequence          Int
+  status            AiGenerationStatus
+  verdict           EvaluationVerdict?
+  score             Int?
+  summary           String             @db.Text
+  findings          Json?
+  evidence          Json?
+  structuredOutput  Json?
+  provider          String             @db.VarChar(80)
+  model             String             @db.VarChar(120)
+  reasoningEffort   String             @db.VarChar(20)
+  inputTokens       Int                @default(0)
+  cachedInputTokens Int                @default(0)
+  outputTokens      Int                @default(0)
+  webSearchCalls    Int                @default(0)
+  costMicros        BigInt             @default(0)
+  durationMs        Int?
+  errorCode         String?            @db.VarChar(100)
+  createdAt         DateTime           @default(now()) @db.Timestamptz(3)
+  run               AiGenerationRun    @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@unique([runId, agentType, sequence])
+  @@index([runId, sequence])
+}
+
+model AnalyticsConnection {
+  id                    String                    @id @default(uuid()) @db.Uuid
+  tenantId              String                    @db.Uuid
+  clientId              String                    @db.Uuid
+  status                AnalyticsConnectionStatus @default(CONNECTED)
+  encryptedRefreshToken String                    @db.Text
+  scopes                String[]
+  googleAccountEmail    String?                   @db.VarChar(254)
+  ga4PropertyId         String?                   @db.VarChar(40)
+  gscSiteUrl            String?                   @db.VarChar(2048)
+  lastSyncStartedAt     DateTime?                 @db.Timestamptz(3)
+  lastSyncCompletedAt   DateTime?                 @db.Timestamptz(3)
+  nextSyncAt            DateTime?                 @db.Timestamptz(3)
+  lastErrorCode         String?                   @db.VarChar(100)
+  lastErrorMessage      String?                   @db.Text
+  createdById           String                    @db.Uuid
+  createdAt             DateTime                  @default(now()) @db.Timestamptz(3)
+  updatedAt             DateTime                  @updatedAt @db.Timestamptz(3)
+  tenant                Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  client                Client                    @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  createdBy             User                      @relation("AnalyticsConnectionCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  syncRuns              AnalyticsSyncRun[]
+  ga4Metrics            Ga4PageMetric[]
+  gscMetrics            GscSearchMetric[]
+
+  @@unique([tenantId, clientId])
+  @@index([status, nextSyncAt])
+}
+
+model AnalyticsOAuthState {
+  id            String    @id @default(uuid()) @db.Uuid
+  tenantId      String    @db.Uuid
+  clientId      String    @db.Uuid
+  requestedById String    @db.Uuid
+  stateHash     String    @unique @db.Char(64)
+  returnPath    String    @db.VarChar(300)
+  expiresAt     DateTime  @db.Timestamptz(3)
+  consumedAt    DateTime? @db.Timestamptz(3)
+  createdAt     DateTime  @default(now()) @db.Timestamptz(3)
+  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  client        Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  requestedBy   User      @relation("AnalyticsOAuthRequestedBy", fields: [requestedById], references: [id], onDelete: Cascade)
+
+  @@index([expiresAt, consumedAt])
+}
+
+model AnalyticsSyncRun {
+  id            String              @id @default(uuid()) @db.Uuid
+  connectionId  String              @db.Uuid
+  tenantId      String              @db.Uuid
+  clientId      String              @db.Uuid
+  requestedById String?             @db.Uuid
+  status        AnalyticsSyncStatus @default(RUNNING)
+  startDate     DateTime            @db.Date
+  endDate       DateTime            @db.Date
+  ga4Rows       Int                 @default(0)
+  gscRows       Int                 @default(0)
+  errorCode     String?             @db.VarChar(100)
+  errorMessage  String?             @db.Text
+  startedAt     DateTime            @default(now()) @db.Timestamptz(3)
+  completedAt   DateTime?           @db.Timestamptz(3)
+  connection    AnalyticsConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  tenant        Tenant              @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  client        Client              @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  requestedBy   User?               @relation("AnalyticsSyncRequestedBy", fields: [requestedById], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, clientId, startedAt])
+  @@index([status, startedAt])
+}
+
+model Ga4PageMetric {
+  id                     String              @id @default(uuid()) @db.Uuid
+  connectionId           String              @db.Uuid
+  tenantId               String              @db.Uuid
+  clientId               String              @db.Uuid
+  date                   DateTime            @db.Date
+  pagePath               String              @db.VarChar(2048)
+  sessions               Int                 @default(0)
+  activeUsers            Int                 @default(0)
+  views                  Int                 @default(0)
+  engagedSessions        Int                 @default(0)
+  userEngagementDuration Float               @default(0)
+  keyEvents              Float               @default(0)
+  connection             AnalyticsConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  tenant                 Tenant              @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  client                 Client              @relation(fields: [clientId], references: [id], onDelete: Restrict)
+
+  @@unique([connectionId, date, pagePath])
+  @@index([tenantId, clientId, date])
+}
+
+model GscSearchMetric {
+  id           String              @id @default(uuid()) @db.Uuid
+  connectionId String              @db.Uuid
+  tenantId     String              @db.Uuid
+  clientId     String              @db.Uuid
+  date         DateTime            @db.Date
+  page         String              @db.VarChar(2048)
+  query        String              @db.VarChar(1000)
+  clicks       Float               @default(0)
+  impressions  Float               @default(0)
+  ctr          Float               @default(0)
+  position     Float               @default(0)
+  connection   AnalyticsConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  tenant       Tenant              @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  client       Client              @relation(fields: [clientId], references: [id], onDelete: Restrict)
+
+  @@unique([connectionId, date, page, query])
+  @@index([tenantId, clientId, date])
+  @@index([clientId, page, date])
+}
+
+model ContentPublication {
+  id            String                   @id @default(uuid()) @db.Uuid
+  tenantId      String                   @db.Uuid
+  clientId      String                   @db.Uuid
+  noteId        String                   @db.Uuid
+  url           String                   @db.VarChar(2048)
+  pagePath      String                   @db.VarChar(2048)
+  publishedAt   DateTime                 @db.Date
+  source        ContentPublicationSource
+  status        ContentPublicationStatus @default(PENDING_CONFIRMATION)
+  createdById   String?                  @db.Uuid
+  confirmedById String?                  @db.Uuid
+  confirmedAt   DateTime?                @db.Timestamptz(3)
+  createdAt     DateTime                 @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime                 @updatedAt @db.Timestamptz(3)
+  tenant        Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  client        Client                   @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  note          NoteDocument             @relation(fields: [noteId], references: [id], onDelete: Restrict)
+  createdBy     User?                    @relation("ContentPublicationCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  confirmedBy   User?                    @relation("ContentPublicationConfirmedBy", fields: [confirmedById], references: [id], onDelete: SetNull)
+
+  @@unique([clientId, url])
+  @@index([tenantId, clientId, status, publishedAt])
+  @@index([noteId])
+}
+
+model ResultsPortalLink {
+  id             String                  @id @default(uuid()) @db.Uuid
+  tenantId       String                  @db.Uuid
+  clientId       String                  @db.Uuid
+  tokenHash      String                  @unique @db.Char(64)
+  recipientName  String                  @db.VarChar(160)
+  recipientEmail String                  @db.VarChar(254)
+  reportStartDate DateTime               @db.Date
+  reportEndDate   DateTime               @db.Date
+  status         ResultsPortalLinkStatus @default(ACTIVE)
+  expiresAt      DateTime                @db.Timestamptz(3)
+  lastViewedAt   DateTime?               @db.Timestamptz(3)
+  viewCount      Int                     @default(0)
+  maxViews       Int                     @default(1000)
+  createdById    String                  @db.Uuid
+  revokedById    String?                 @db.Uuid
+  revokedAt      DateTime?               @db.Timestamptz(3)
+  createdAt      DateTime                @default(now()) @db.Timestamptz(3)
+  tenant         Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  client         Client                  @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  createdBy      User                    @relation("ResultsPortalLinkCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  revokedBy      User?                   @relation("ResultsPortalLinkRevokedBy", fields: [revokedById], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, clientId, status, expiresAt])
+}
+
+model TitleReviewLink {
+  id                String                 @id @default(uuid()) @db.Uuid
+  tenantId          String                 @db.Uuid
+  clientId          String                 @db.Uuid
+  proposalId        String                 @db.Uuid
+  version           Int
+  tokenHash         String                 @unique @db.Char(64)
+  status            ClientReviewLinkStatus @default(ACTIVE)
+  recipientName     String                 @db.VarChar(160)
+  recipientEmail    String                 @db.VarChar(254)
+  expiresAt         DateTime               @db.Timestamptz(3)
+  maxViews          Int                    @default(50)
+  viewCount         Int                    @default(0)
+  lastViewedAt      DateTime?              @db.Timestamptz(3)
+  createdById       String                 @db.Uuid
+  revokedById       String?                @db.Uuid
+  revokedAt         DateTime?              @db.Timestamptz(3)
+  sentByEmail       String?                @db.VarChar(254)
+  emailSubject      String?                @db.VarChar(300)
+  externalMessageId String?                @db.VarChar(500)
+  sentAt            DateTime?              @db.Timestamptz(3)
+  createdAt         DateTime               @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime               @updatedAt @db.Timestamptz(3)
+  tenant            Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  client            Client                 @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  proposal          TitleProposal          @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  createdBy         User                   @relation("TitleReviewLinkCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  revokedBy         User?                  @relation("TitleReviewLinkRevokedBy", fields: [revokedById], references: [id], onDelete: SetNull)
+  decision          TitleReviewDecision?
+
+  @@index([tenantId, clientId, status])
+  @@index([proposalId, version, status])
+  @@index([expiresAt, status])
+}
+
+model TitleReviewDecision {
+  id            String                   @id @default(uuid()) @db.Uuid
+  linkId        String                   @unique @db.Uuid
+  type          ClientReviewDecisionType
+  reason        String                   @db.VarChar(2000)
+  reviewerName  String                   @db.VarChar(160)
+  reviewerEmail String                   @db.VarChar(254)
+  ipAddress     String?                  @db.VarChar(64)
+  userAgent     String?                  @db.VarChar(500)
+  createdAt     DateTime                 @default(now()) @db.Timestamptz(3)
+  link          TitleReviewLink          @relation(fields: [linkId], references: [id], onDelete: Cascade)
+}
+
+model TitlePackageReviewLink {
+  id                String                   @id @default(uuid()) @db.Uuid
+  tenantId          String                   @db.Uuid
+  clientId          String                   @db.Uuid
+  generationRunId   String                   @db.Uuid
+  tokenHash         String                   @unique @db.Char(64)
+  status            ClientReviewLinkStatus   @default(ACTIVE)
+  recipientName     String                   @db.VarChar(160)
+  recipientEmail    String                   @db.VarChar(254)
+  expiresAt         DateTime                 @db.Timestamptz(3)
+  maxViews          Int                      @default(100)
+  approvalTarget    Int                      @default(4)
+  viewCount         Int                      @default(0)
+  lastViewedAt      DateTime?                @db.Timestamptz(3)
+  createdById       String                   @db.Uuid
+  revokedById       String?                  @db.Uuid
+  revokedAt         DateTime?                @db.Timestamptz(3)
+  sentByEmail       String?                  @db.VarChar(254)
+  emailSubject      String?                  @db.VarChar(300)
+  externalMessageId String?                  @db.VarChar(500)
+  sentAt            DateTime?                @db.Timestamptz(3)
+  createdAt         DateTime                 @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime                 @updatedAt @db.Timestamptz(3)
+  tenant            Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  client            Client                   @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  generationRun     AiGenerationRun          @relation(fields: [generationRunId], references: [id], onDelete: Cascade)
+  createdBy         User                     @relation("TitlePackageReviewLinkCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  revokedBy         User?                    @relation("TitlePackageReviewLinkRevokedBy", fields: [revokedById], references: [id], onDelete: SetNull)
+  items             TitlePackageReviewItem[]
+
+  @@index([tenantId, clientId, status])
+  @@index([generationRunId, status])
+  @@index([expiresAt, status])
+}
+
+model TitlePackageReviewItem {
+  id         String                      @id @default(uuid()) @db.Uuid
+  linkId     String                      @db.Uuid
+  proposalId String                      @db.Uuid
+  version    Int
+  position   Int
+  link       TitlePackageReviewLink      @relation(fields: [linkId], references: [id], onDelete: Cascade)
+  proposal   TitleProposal               @relation(fields: [proposalId], references: [id], onDelete: Restrict)
+  decision   TitlePackageReviewDecision?
+
+  @@unique([linkId, proposalId])
+  @@index([proposalId, version])
+}
+
+model TitlePackageReviewDecision {
+  id            String                   @id @default(uuid()) @db.Uuid
+  itemId        String                   @unique @db.Uuid
+  type          ClientReviewDecisionType
+  reason        String                   @db.VarChar(2000)
+  reviewerName  String                   @db.VarChar(160)
+  reviewerEmail String                   @db.VarChar(254)
+  ipAddress     String?                  @db.VarChar(64)
+  userAgent     String?                  @db.VarChar(500)
+  createdAt     DateTime                 @default(now()) @db.Timestamptz(3)
+  item          TitlePackageReviewItem   @relation(fields: [itemId], references: [id], onDelete: Cascade)
+}

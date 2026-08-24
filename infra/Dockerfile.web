@@ -1,0 +1,37 @@
+# syntax=docker/dockerfile:1.7
+FROM node:22-alpine AS base
+ENV PNPM_HOME=/pnpm
+ENV PATH=$PNPM_HOME:$PATH
+RUN corepack enable
+WORKDIR /app
+
+FROM base AS dependencies
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY apps/api/package.json apps/api/package.json
+COPY apps/web/package.json apps/web/package.json
+RUN pnpm install --frozen-lockfile
+
+FROM dependencies AS builder
+COPY apps/web apps/web
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV API_INTERNAL_URL=http://api:4100
+RUN pnpm --filter web build
+RUN source_dir="$(find node_modules/.pnpm -path '*/@swc/helpers' -type d | head -n 1)" \
+    && target_dir="$(find apps/web/.next/standalone/node_modules/.pnpm -path '*/@swc/helpers' -type d | head -n 1)" \
+    && test -n "$source_dir" \
+    && test -n "$target_dir" \
+    && cp -R "$source_dir"/. "$target_dir"/
+
+FROM node:22-alpine AS runner
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV HOSTNAME=0.0.0.0
+ENV PORT=3000
+WORKDIR /app
+RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 --ingroup nodejs nextjs
+COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/static ./apps/web/.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/apps/web/public ./apps/web/public
+USER nextjs
+EXPOSE 3000
+CMD ["node", "apps/web/server.js"]
