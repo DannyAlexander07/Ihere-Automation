@@ -36,7 +36,11 @@ export class AuthController {
   }
 
   @Public()
-  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  // The web client deliberately keeps the access token in memory. Every full
+  // reload therefore performs one cookie-backed refresh, so a user checking
+  // several responsive routes in quick succession must not be logged out.
+  // Login remains protected by the stricter five-attempt limit above.
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
   @Post('refresh')
   async refresh(
     @Req() request: FastifyRequest,
