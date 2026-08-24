@@ -272,7 +272,7 @@ export const noteDraftSchema = z.object({
       caption: z.string().max(600).nullable(),
       referenceUrl: z.string().url().max(2048).nullable(),
     })
-    .optional(),
+    .nullable(),
   content: z.object({
     schemaVersion: z.literal(1),
     blocks: z.array(noteBlockSchema).min(8).max(80),

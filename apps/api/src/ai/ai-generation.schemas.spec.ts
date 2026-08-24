@@ -145,6 +145,7 @@ describe('esquemas de generación inteligente', () => {
       authorName: 'Equipo editorial',
       authorRole: 'Especialistas en talento',
       ctaText: 'Conoce cómo podemos acompañar a tu organización.',
+      imageProposal: null,
       content: {
         schemaVersion: 1,
         blocks: Array.from({ length: 8 }, (_, index) => ({
@@ -156,6 +157,12 @@ describe('esquemas de generación inteligente', () => {
       sourceUrlsUsed: ['https://www.ilo.org/example'],
     };
     expect(noteDraftSchema.safeParse(draft).success).toBe(true);
+    const draftWithoutImageProposal = Object.fromEntries(
+      Object.entries(draft).filter(([key]) => key !== 'imageProposal'),
+    );
+    expect(noteDraftSchema.safeParse(draftWithoutImageProposal).success).toBe(
+      false,
+    );
     expect(
       noteDraftSchema.safeParse({
         ...draft,
