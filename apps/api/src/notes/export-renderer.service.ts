@@ -183,7 +183,9 @@ export class ExportRendererService {
         }),
       );
     }
-    for (const block of input.blocks) children.push(...this.docxBlock(block));
+    for (const [index, block] of input.blocks.entries()) {
+      children.push(...this.docxBlock(block, index + 1));
+    }
     if (input.ctaText) {
       const ctaChildren: Array<TextRun | ExternalHyperlink> = [
         new TextRun({ text: input.ctaText, bold: true, color: colors.ink }),
@@ -225,7 +227,11 @@ export class ExportRendererService {
     input.sources.forEach((source) => {
       children.push(
         new Paragraph({
-          numbering: { reference: 'ihere-decimal', level: 0 },
+          numbering: {
+            reference: 'ihere-decimal',
+            level: 0,
+            instance: input.blocks.length + 1,
+          },
           children: [
             new TextRun({
               text: `${source.title} - ${source.entity}. `,
@@ -403,7 +409,10 @@ export class ExportRendererService {
     return Packer.toBuffer(document);
   }
 
-  private docxBlock(block: ExportBlock): Paragraph[] {
+  private docxBlock(
+    block: ExportBlock,
+    numberingInstance: number,
+  ): Paragraph[] {
     if (block.type === 'heading') {
       const heading =
         block.level === 4
@@ -426,6 +435,9 @@ export class ExportRendererService {
               reference:
                 block.type === 'bullet_list' ? 'ihere-bullet' : 'ihere-decimal',
               level: 0,
+              ...(block.type === 'ordered_list'
+                ? { instance: numberingInstance }
+                : {}),
             },
             children: docxInlineRuns(item),
           }),
