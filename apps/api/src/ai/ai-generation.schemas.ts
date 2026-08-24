@@ -270,7 +270,11 @@ export const noteDraftSchema = z.object({
       prompt: z.string().min(20).max(3000),
       altText: z.string().min(8).max(320),
       caption: z.string().max(600).nullable(),
-      referenceUrl: z.string().url().max(2048).nullable(),
+      referenceUrl: z
+        .string()
+        .regex(/^https?:\/\/[^\s]+$/i)
+        .max(2048)
+        .nullable(),
     })
     .nullable(),
   content: z.object({

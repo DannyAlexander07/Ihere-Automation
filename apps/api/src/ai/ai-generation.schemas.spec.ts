@@ -1,3 +1,4 @@
+import { zodTextFormat } from 'openai/helpers/zod';
 import {
   finalizeTitleBriefSuggestion,
   noteDraftSchema,
@@ -169,5 +170,37 @@ describe('esquemas de generación inteligente', () => {
         sourceUrlsUsed: ['ftp://example.com'],
       }).success,
     ).toBe(false);
+    expect(
+      noteDraftSchema.safeParse({
+        ...draft,
+        imageProposal: {
+          concept: 'Equipo coordinando una operación de forma responsable.',
+          prompt:
+            'Fotografía editorial horizontal de un equipo peruano coordinando una operación con naturalidad.',
+          altText: 'Equipo coordinando una operación de forma responsable',
+          caption: null,
+          referenceUrl: 'https://www.adecco.com/es-pe/',
+        },
+      }).success,
+    ).toBe(true);
+    expect(
+      noteDraftSchema.safeParse({
+        ...draft,
+        imageProposal: {
+          concept: 'Equipo coordinando una operación de forma responsable.',
+          prompt:
+            'Fotografía editorial horizontal de un equipo peruano coordinando una operación con naturalidad.',
+          altText: 'Equipo coordinando una operación de forma responsable',
+          caption: null,
+          referenceUrl: 'ftp://example.com/reference',
+        },
+      }).success,
+    ).toBe(false);
+  });
+
+  it('genera un contrato compatible sin el formato URI no admitido', () => {
+    const format = zodTextFormat(noteDraftSchema, 'ihere_note_draft');
+
+    expect(JSON.stringify(format)).not.toContain('"format":"uri"');
   });
 });
