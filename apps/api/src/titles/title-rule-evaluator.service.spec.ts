@@ -56,4 +56,20 @@ describe('TitleRuleEvaluatorService', () => {
       'duplicidad',
     );
   });
+
+  it('bloquea propuestas con oportunidad o riesgo pendientes', () => {
+    const result = service.evaluate(
+      {
+        ...proposal,
+        opportunity: null,
+        risk: 'Pendiente de revisión editorial.',
+      },
+      unique,
+    );
+
+    expect(result.verdict).toBe(EvaluationVerdict.BLOCK);
+    expect(
+      result.agentResults.flatMap((agent) => agent.findings).join(' '),
+    ).toMatch(/pendientes|oportunidad y el riesgo/i);
+  });
 });

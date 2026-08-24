@@ -70,6 +70,8 @@ export class TitlesService {
         audience: true,
         searchIntent: true,
         focus: true,
+        opportunity: true,
+        risk: true,
         status: true,
         duplicateScore: true,
         duplicateResolution: true,

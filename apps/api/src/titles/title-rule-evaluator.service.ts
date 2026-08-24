@@ -34,7 +34,10 @@ export class TitleRuleEvaluatorService {
       focusWords.includes(word),
     ).length;
     const hasPlaceholder = /\b(tbd|pendiente|lorem|xxx|por definir)\b/i.test(
-      `${title} ${proposal.objective} ${proposal.focus}`,
+      `${title} ${proposal.objective} ${proposal.focus} ${proposal.opportunity ?? ''} ${proposal.risk ?? ''}`,
+    );
+    const hasCompleteContext = Boolean(
+      proposal.opportunity?.trim() && proposal.risk?.trim(),
     );
     const cleanPunctuation = !/[!?.,:;]{2,}/.test(title);
     const naturalCapitalization =
@@ -87,6 +90,9 @@ export class TitleRuleEvaluatorService {
         : []),
       ...(hasPlaceholder
         ? ['Existen textos pendientes o marcadores de posición']
+        : []),
+      ...(!hasCompleteContext
+        ? ['La oportunidad y el riesgo editorial son obligatorios']
         : []),
       ...(duplicate.score >= 75
         ? ['La duplicidad alta requiere una decisión humana']
