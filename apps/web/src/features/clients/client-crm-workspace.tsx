@@ -106,9 +106,12 @@ export function ClientCrmWorkspace() {
 
   async function saved(text: string) {
     setNotice(text);
+    await load();
+    // Close after the refreshed list is committed. Keeping this as the final
+    // state transition prevents Radix from reopening the controlled dialog
+    // while the form submission and list refresh settle in the same tick.
     setCreateOpen(false);
     setEditing(null);
-    await load();
   }
 
   return (

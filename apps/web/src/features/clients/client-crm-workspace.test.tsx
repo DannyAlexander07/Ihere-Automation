@@ -50,6 +50,11 @@ describe("ClientCrmWorkspace", () => {
         body: JSON.stringify({ name: "Cliente Nuevo", slug: undefined }),
       }),
     );
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("dialog", { name: "Crear cliente editorial" }),
+      ).not.toBeInTheDocument(),
+    );
   });
 
   it("oculta las acciones de escritura sin clients.manage", async () => {
