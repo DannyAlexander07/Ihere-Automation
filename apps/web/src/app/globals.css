@@ -172,6 +172,7 @@
   }
   html {
     @apply bg-background font-sans;
+    overflow-x: clip;
   }
   body {
     @apply bg-background text-foreground antialiased;
