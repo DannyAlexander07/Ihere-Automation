@@ -417,10 +417,10 @@ async function main() {
     !password ||
     !pepper ||
     !/^\d{8}$/.test(dni) ||
-    password.length < 12
+    password.length < 5
   ) {
     throw new Error(
-      'El administrador inicial requiere DNI válido, contraseña de 12+ caracteres y LOGIN_ALIAS_PEPPER.',
+      'El administrador inicial requiere DNI válido, contraseña de 5+ caracteres y LOGIN_ALIAS_PEPPER.',
     );
   }
 

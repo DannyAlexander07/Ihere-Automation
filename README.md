@@ -61,6 +61,6 @@ pnpm --filter api test:e2e
 
 ## Producción
 
-La plantilla `infra/production.env.example` no contiene secretos utilizables. La configuración productiva exige credenciales reales, separa la red de aplicación de la red de datos y ejecuta API/web sin privilegios de root. El workflow `.github/workflows/ci.yml` valida lint, tipos, pruebas, build, migraciones y contenedores antes de una entrega.
+La plantilla `infra/production.env.example` no contiene secretos utilizables. La configuración productiva exige credenciales reales, separa la red de aplicación de la red de datos y ejecuta API/web sin privilegios de root. Por defecto la web se publica solo en `127.0.0.1:3100` para integrarse de forma segura con el Nginx del servidor. El proxy Caddy incluido queda disponible únicamente con el perfil opcional `caddy`, evitando competir por los puertos 80 y 443 en servidores compartidos. El workflow `.github/workflows/ci.yml` valida lint, tipos, pruebas, build, migraciones y contenedores antes de una entrega.
 
 El despliegue no se realiza automáticamente desde este repositorio: requiere completar secretos, dominio, respaldo, OAuth de Google y una revisión final del entorno VPS.

@@ -112,6 +112,8 @@ services:
     restart: unless-stopped
     environment:
       API_INTERNAL_URL: http://api:4100
+    ports:
+      - "127.0.0.1:${I_HERE_WEB_PORT:-3100}:3000"
     depends_on:
       api:
         condition: service_healthy
@@ -124,6 +126,7 @@ services:
 
   caddy:
     image: caddy:2-alpine
+    profiles: ["caddy"]
     restart: unless-stopped
     environment:
       I_HERE_DOMAIN: ${I_HERE_DOMAIN:?I_HERE_DOMAIN is required}
