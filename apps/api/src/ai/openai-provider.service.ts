@@ -56,10 +56,8 @@ export class OpenAiProviderService {
     const remaining = input.deadline - Date.now();
     if (remaining <= 0) throw new Error('La generación excedió su plazo.');
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), remaining);
-    timer.unref();
-    try {
-      const response = await this.getClient().responses.parse(
+    const response = await this.withDeadline(
+      this.getClient().responses.parse(
         {
           model: this.primaryModel,
           store: false,
@@ -84,22 +82,23 @@ export class OpenAiProviderService {
           signal: controller.signal,
           idempotencyKey: `${input.runId}:${input.stage}`,
         },
+      ),
+      controller,
+      remaining,
+      'La generación excedió su plazo.',
+    );
+    if (!response.output_parsed) {
+      throw new Error(
+        response.status === 'incomplete'
+          ? 'El servicio editorial devolvió una respuesta incompleta.'
+          : 'El servicio editorial no devolvió una salida estructurada válida.',
       );
-      if (!response.output_parsed) {
-        throw new Error(
-          response.status === 'incomplete'
-            ? 'El servicio editorial devolvió una respuesta incompleta.'
-            : 'El servicio editorial no devolvió una salida estructurada válida.',
-        );
-      }
-      return {
-        output: response.output_parsed as z.infer<TSchema>,
-        usage: this.usage(response),
-        responseId: response.id,
-      };
-    } finally {
-      clearTimeout(timer);
     }
+    return {
+      output: response.output_parsed as z.infer<TSchema>,
+      usage: this.usage(response),
+      responseId: response.id,
+    };
   }
 
   async webResearch(input: {
@@ -115,10 +114,8 @@ export class OpenAiProviderService {
     const remaining = input.deadline - Date.now();
     if (remaining <= 0) throw new Error('La investigación excedió su plazo.');
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), remaining);
-    timer.unref();
-    try {
-      const response = await this.getClient().responses.create(
+    const response = await this.withDeadline(
+      this.getClient().responses.create(
         {
           model: this.primaryModel,
           store: false,
@@ -140,21 +137,43 @@ export class OpenAiProviderService {
           signal: controller.signal,
           idempotencyKey: `${input.runId}:${input.stage}`,
         },
+      ),
+      controller,
+      remaining,
+      'La investigación excedió su plazo.',
+    );
+    const citations = this.extractCitations(response.output);
+    if (!response.output_text.trim() || citations.length < 1) {
+      throw new Error(
+        'La investigación no devolvió texto respaldado por fuentes citables.',
       );
-      const citations = this.extractCitations(response.output);
-      if (!response.output_text.trim() || citations.length < 1) {
-        throw new Error(
-          'La investigación no devolvió texto respaldado por fuentes citables.',
-        );
-      }
-      return {
-        text: response.output_text,
-        citations,
-        usage: this.usage(response),
-        responseId: response.id,
-      };
+    }
+    return {
+      text: response.output_text,
+      citations,
+      usage: this.usage(response),
+      responseId: response.id,
+    };
+  }
+
+  private async withDeadline<T>(
+    request: PromiseLike<T>,
+    controller: AbortController,
+    timeoutMs: number,
+    message: string,
+  ): Promise<T> {
+    let timer: NodeJS.Timeout | undefined;
+    const timeout = new Promise<never>((_resolve, reject) => {
+      timer = setTimeout(() => {
+        reject(new Error(message));
+        controller.abort();
+      }, timeoutMs);
+      timer.unref();
+    });
+    try {
+      return await Promise.race([Promise.resolve(request), timeout]);
     } finally {
-      clearTimeout(timer);
+      if (timer) clearTimeout(timer);
     }
   }
 
