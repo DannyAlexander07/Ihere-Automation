@@ -427,12 +427,12 @@ function UserList({
       className="min-w-0 max-w-full overflow-hidden rounded-xl border bg-card shadow-card"
       aria-label="Listado de usuarios"
     >
-      <div className="divide-y md:hidden">
+      <div className="divide-y lg:hidden">
         {users.map((user) => (
           <UserCard key={user.id} user={user} onSelect={onSelect} />
         ))}
       </div>
-      <div className="hidden min-w-0 max-w-full overflow-x-auto md:block">
+      <div className="hidden min-w-0 max-w-full overflow-x-auto lg:block">
         <table className="w-full min-w-[760px] text-left text-sm">
           <thead className="border-b bg-muted/40 text-xs text-muted-foreground">
             <tr>
