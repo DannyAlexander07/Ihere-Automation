@@ -1411,8 +1411,8 @@ export function buildAnalyticsSummary(
     methodology: {
       note:
         scope === 'BLOG'
-          ? 'El alcance corresponde únicamente a URLs del blog. Las variaciones muestran correlación entre periodos y no atribuyen causalidad a automatización, SEO ni GEO.'
-          : 'Las variaciones muestran correlación entre periodos; no atribuyen causalidad a automatización, SEO ni GEO.',
+          ? 'Fuentes del informe: GA4 para consumo en el blog y Search Console para visibilidad orgánica y consultas.'
+          : 'Fuentes del informe: GA4 para consumo en el sitio y Search Console para visibilidad orgánica y consultas.',
       ga4: 'Sesiones, usuarios activos, vistas, sesiones con interacción y eventos clave reportados por GA4.',
       gsc: 'Clics, impresiones, CTR y posición media reportados por Search Console.',
     },
@@ -1558,14 +1558,22 @@ function monthlySeries(
     series.set(month, current);
     return current;
   };
-  for (const row of ga4) {
-    if (row.pagePath === TOTAL_MARKER) continue;
+  const ga4Source = ga4.some((row) => row.pagePath === TOTAL_MARKER)
+    ? ga4.filter((row) => row.pagePath === TOTAL_MARKER)
+    : ga4;
+  const gscSource = gsc.some(
+    (row) => row.page === TOTAL_MARKER && row.query === TOTAL_MARKER,
+  )
+    ? gsc.filter(
+        (row) => row.page === TOTAL_MARKER && row.query === TOTAL_MARKER,
+      )
+    : gsc;
+  for (const row of ga4Source) {
     const item = itemFor(row.date);
     item.sessions += row.sessions;
     item.views += row.views;
   }
-  for (const row of gsc) {
-    if (row.page === TOTAL_MARKER || row.query === TOTAL_MARKER) continue;
+  for (const row of gscSource) {
     const item = itemFor(row.date);
     item.clicks += row.clicks;
     item.impressions += row.impressions;

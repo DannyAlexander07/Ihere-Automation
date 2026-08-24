@@ -47,7 +47,16 @@ describe('buildAnalyticsSummary', () => {
       query: 'empleo',
       clicks: 20,
     });
-    expect(summary.methodology.note).toContain('no atribuyen causalidad');
+    expect(summary.methodology.note).toContain('Fuentes del informe');
+    expect(summary.monthly).toEqual([
+      expect.objectContaining({
+        month: '2026-08',
+        sessions: 100,
+        views: 150,
+        clicks: 30,
+        impressions: 300,
+      }),
+    ]);
   });
 
   it('no inventa porcentaje cuando el periodo anterior es cero', () => {
@@ -88,6 +97,15 @@ describe('buildAnalyticsSummary', () => {
     expect(summary.metrics.sessions.current).toBe(90);
     expect(summary.metrics.activeUsers.current).toBe(70);
     expect(summary.metrics.clicks.current).toBe(25);
+    expect(summary.monthly).toEqual([
+      expect.objectContaining({
+        month: '2026-08',
+        sessions: 90,
+        views: 130,
+        clicks: 25,
+        impressions: 250,
+      }),
+    ]);
     expect(summary.topPages).toEqual([
       expect.objectContaining({ pagePath: '/es-pe/blog/a' }),
       expect.objectContaining({ pagePath: '/es-pe/blog/b' }),
