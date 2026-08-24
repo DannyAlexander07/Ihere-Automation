@@ -455,9 +455,15 @@ export class AiGenerationService {
             authorName: true,
             authorRole: true,
             ctaText: true,
+            ctaUrl: true,
+            internalLinks: true,
             correctionType: true,
             changeReason: true,
             createdAt: true,
+            sources: {
+              orderBy: { accessedAt: 'asc' },
+              select: { title: true, url: true },
+            },
           },
         },
         clientReviewLinks: {
@@ -538,6 +544,13 @@ export class AiGenerationService {
           authorName: currentVersion.authorName,
           authorRole: currentVersion.authorRole,
           ctaText: currentVersion.ctaText,
+          ctaUrl: currentVersion.ctaUrl,
+          internalLinks: Array.isArray(currentVersion.internalLinks)
+            ? currentVersion.internalLinks.filter(
+                (value): value is string => typeof value === 'string',
+              )
+            : [],
+          sources: currentVersion.sources,
         },
       },
       clientFeedback,

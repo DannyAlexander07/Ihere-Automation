@@ -47,6 +47,7 @@ import {
   type NoteAuditOutput,
   type NoteDraftOutput,
   type NoteGenerationSnapshot,
+  verifiedResearchFromCurrentDraft,
   webResearchRecordSchema,
   type WebResearchRecord,
 } from './ai-generation.schemas';
@@ -759,6 +760,58 @@ export class AiGenerationProcessorService {
     ) {
       return webResearchRecordSchema.parse(existing.structuredOutput);
     }
+    const verifiedResearch = verifiedResearchFromCurrentDraft(snapshot);
+    if (verifiedResearch) {
+      await this.prisma.aiAgentResult.upsert({
+        where: {
+          runId_agentType_sequence: {
+            runId: run.id,
+            agentType: AgentType.RESEARCHER,
+            sequence: 1,
+          },
+        },
+        update: {
+          status: AiGenerationStatus.COMPLETED,
+          verdict: EvaluationVerdict.PASS,
+          summary: `Se reutilizaron ${verifiedResearch.citations.length} fuentes verificadas de la versión observada.`,
+          findings: {
+            citationCount: verifiedResearch.citations.length,
+            reusedVerifiedSources: true,
+          },
+          evidence: { stage: 'note-research-reuse-v1' },
+          structuredOutput: verifiedResearch,
+          provider: 'internal',
+          model: 'verified-source-reuse',
+          reasoningEffort: 'none',
+          inputTokens: 0,
+          cachedInputTokens: 0,
+          outputTokens: 0,
+          webSearchCalls: 0,
+          costMicros: 0,
+          durationMs: 0,
+          errorCode: null,
+        },
+        create: {
+          runId: run.id,
+          agentType: AgentType.RESEARCHER,
+          sequence: 1,
+          status: AiGenerationStatus.COMPLETED,
+          verdict: EvaluationVerdict.PASS,
+          summary: `Se reutilizaron ${verifiedResearch.citations.length} fuentes verificadas de la versión observada.`,
+          findings: {
+            citationCount: verifiedResearch.citations.length,
+            reusedVerifiedSources: true,
+          },
+          evidence: { stage: 'note-research-reuse-v1' },
+          structuredOutput: verifiedResearch,
+          provider: 'internal',
+          model: 'verified-source-reuse',
+          reasoningEffort: 'none',
+          durationMs: 0,
+        },
+      });
+      return verifiedResearch;
+    }
     await this.assertStageBudget(run, {
       inputTokens: this.inputTokenUpperBound(
         this.researchSystem(),
@@ -971,7 +1024,14 @@ export class AiGenerationProcessorService {
         authorName: cleanDraft.authorName,
         authorRole: cleanDraft.authorRole,
         ctaText: cleanDraft.ctaText,
-        internalLinks: [],
+        ctaUrl: cleanDraft.ctaUrl
+          ? stripTrackingParameters(cleanDraft.ctaUrl)
+          : null,
+        internalLinks: [
+          ...new Set(
+            cleanDraft.internalLinks.map((url) => stripTrackingParameters(url)),
+          ),
+        ],
         createdById: run.requestedById,
         generationRunId: run.id,
       };
@@ -1394,6 +1454,7 @@ export class AiGenerationProcessorService {
       'Aplica literalmente las reglas activas del cliente durante toda la nota, en especial la terminología de servicios, la voz de marca y el equilibrio entre tecnología y criterio humano; un descargo aislado al final no corrige un enfoque contrario a la marca.',
       'Usa únicamente los hechos y URLs contenidos en la investigación proporcionada; no inventes datos, enlaces, especialistas ni experiencia interna del cliente.',
       'Incluye referencias naturales cerca de la afirmación que respaldan y selecciona en sourceUrlsUsed solo URLs exactas de la investigación.',
+      'Devuelve ctaUrl e internalLinks usando solo URLs exactas presentes en la investigación; si no existe una URL pertinente, usa null y una lista vacía. En una corrección conserva los enlaces ya verificados de currentDraft salvo que la observación pida cambiarlos.',
       'Diferencia con claridad los hechos respaldados, la interpretación editorial y las recomendaciones prácticas. Solo atribuye una metodología, dato o experiencia a Adecco cuando la investigación lo sustente expresamente.',
       'No prometas resultados garantizados ni cumplimiento absoluto. Toda afirmación legal, normativa o de desempeño debe conservar alcance, condiciones y fuente primaria; si la evidencia no basta, omítela o preséntala como un punto que requiere validación humana especializada.',
       'El contenido debe tener normalmente entre 1200 y 1800 palabras cuando la complejidad del tema lo justifique, por exigencia editorial de este flujo y no porque un buscador premie una cantidad fija. Prioriza cobertura real sobre relleno, usa bloques con identificadores únicos, encabezados descriptivos y un CTA prudente sin URL inventada.',

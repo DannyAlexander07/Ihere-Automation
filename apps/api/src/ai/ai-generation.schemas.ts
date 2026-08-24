@@ -264,6 +264,19 @@ export const noteDraftSchema = z.object({
   authorName: z.string().min(2).max(160),
   authorRole: z.string().min(2).max(160),
   ctaText: z.string().min(5).max(300),
+  ctaUrl: z
+    .string()
+    .regex(/^https?:\/\/[^\s]+$/i)
+    .max(1200)
+    .nullable(),
+  internalLinks: z
+    .array(
+      z
+        .string()
+        .regex(/^https?:\/\/[^\s]+$/i)
+        .max(1200),
+    )
+    .max(20),
   imageProposal: z
     .object({
       concept: z.string().min(10).max(1000),
@@ -336,6 +349,14 @@ export const noteGenerationSnapshotSchema = z.object({
       authorName: z.string().nullable(),
       authorRole: z.string().nullable(),
       ctaText: z.string().nullable(),
+      ctaUrl: z.string().nullable(),
+      internalLinks: z.array(z.string()),
+      sources: z.array(
+        z.object({
+          title: z.string(),
+          url: z.string().url(),
+        }),
+      ),
     }),
   }),
   clientFeedback: z
@@ -368,4 +389,25 @@ export type NoteAuditOutput = z.infer<typeof noteAuditSchema>;
 export type NoteGenerationSnapshot = z.infer<
   typeof noteGenerationSnapshotSchema
 >;
+
+export function verifiedResearchFromCurrentDraft(
+  snapshot: NoteGenerationSnapshot,
+) {
+  if (
+    !snapshot.clientFeedback ||
+    snapshot.note.currentDraft.sources.length < 1
+  ) {
+    return null;
+  }
+  return webResearchRecordSchema.parse({
+    text: [
+      `Corrección acotada de la versión ${snapshot.clientFeedback.version}.`,
+      'Reutiliza únicamente las fuentes ya verificadas y conserva las afirmaciones respaldadas de la versión vigente.',
+      ...snapshot.note.currentDraft.sources.map(
+        (source) => `${source.title}: ${source.url}`,
+      ),
+    ].join('\n'),
+    citations: snapshot.note.currentDraft.sources,
+  });
+}
 export type WebResearchRecord = z.infer<typeof webResearchRecordSchema>;

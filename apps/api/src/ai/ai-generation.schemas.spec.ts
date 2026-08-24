@@ -2,9 +2,11 @@ import { zodTextFormat } from 'openai/helpers/zod';
 import {
   finalizeTitleBriefSuggestion,
   noteDraftSchema,
+  noteGenerationSnapshotSchema,
   titleBriefSnapshotSchema,
   titleGenerationSnapshotSchema,
   titleJudgeSchema,
+  verifiedResearchFromCurrentDraft,
 } from './ai-generation.schemas';
 
 describe('esquemas de generación inteligente', () => {
@@ -146,6 +148,8 @@ describe('esquemas de generación inteligente', () => {
       authorName: 'Equipo editorial',
       authorRole: 'Especialistas en talento',
       ctaText: 'Conoce cómo podemos acompañar a tu organización.',
+      ctaUrl: 'https://www.adecco.com/es-pe/',
+      internalLinks: ['https://www.adecco.com/es-pe/'],
       imageProposal: null,
       content: {
         schemaVersion: 1,
@@ -202,5 +206,59 @@ describe('esquemas de generación inteligente', () => {
     const format = zodTextFormat(noteDraftSchema, 'ihere_note_draft');
 
     expect(JSON.stringify(format)).not.toContain('"format":"uri"');
+  });
+
+  it('reutiliza fuentes verificadas al corregir una observación del cliente', () => {
+    const snapshot = noteGenerationSnapshotSchema.parse({
+      request: { additionalInstructions: null },
+      client: {
+        id: '853156a8-f876-46d0-9b5e-8b84ad629340',
+        name: 'Adecco Perú',
+        slug: 'adecco-peru',
+      },
+      note: {
+        id: 'e35a5b4d-05a8-4f36-b541-5aed5fea6c90',
+        currentVersion: 2,
+        briefSnapshot: {},
+        currentTitle: 'Cómo preparar una campaña estacional en Perú',
+        currentDraft: {
+          title: 'Cómo preparar una campaña estacional en Perú',
+          metaTitle: 'Cómo preparar una campaña estacional en Perú',
+          metaDescription:
+            'Guía práctica para preparar una campaña estacional.',
+          slug: 'preparar-campana-estacional-peru',
+          excerpt: 'Guía práctica para preparar una campaña estacional.',
+          content: { schemaVersion: 1, blocks: [] },
+          authorName: 'Equipo editorial',
+          authorRole: 'Especialistas',
+          ctaText: 'Conoce el servicio.',
+          ctaUrl: 'https://www.adecco.com/es-pe/',
+          internalLinks: ['https://www.adecco.com/es-pe/'],
+          sources: [
+            {
+              title: 'Servicio de Adecco Perú',
+              url: 'https://www.adecco.com/es-pe/',
+            },
+          ],
+        },
+      },
+      clientFeedback: {
+        type: 'REQUEST_CHANGES',
+        reason: 'Añadir una frase final de validación humana.',
+        version: 2,
+        createdAt: '2026-08-24T17:00:00.000Z',
+      },
+      activeRules: [],
+      corrections: [],
+    });
+
+    expect(verifiedResearchFromCurrentDraft(snapshot)).toMatchObject({
+      citations: [
+        {
+          title: 'Servicio de Adecco Perú',
+          url: 'https://www.adecco.com/es-pe/',
+        },
+      ],
+    });
   });
 });
