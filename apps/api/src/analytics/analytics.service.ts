@@ -869,13 +869,7 @@ export class AnalyticsService {
       }),
       this.publicationPerformance(tenantId, clientId),
     ]);
-    const summary = buildAnalyticsSummary(
-      connection,
-      period,
-      ga4,
-      gsc,
-      'BLOG',
-    );
+    const summary = buildAnalyticsSummary(connection, period, ga4, gsc, 'BLOG');
     return {
       ...summary,
       pagePerformance: buildPagePerformance(
@@ -1268,11 +1262,7 @@ export function metricPersistenceBatches(
   return batches;
 }
 
-function reportingPeriod(
-  days: number,
-  startDate?: string,
-  endDate?: string,
-) {
+function reportingPeriod(days: number, startDate?: string, endDate?: string) {
   if (Boolean(startDate) !== Boolean(endDate)) {
     throw new BadRequestException(
       'Indica juntas la fecha inicial y final del informe.',
