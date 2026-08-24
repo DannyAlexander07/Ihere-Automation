@@ -114,6 +114,33 @@ describe('I HERE portal de resultados (e2e)', () => {
     });
   });
 
+  it('impide compartir un informe antes de completar la primera sincronización', async () => {
+    await prisma.analyticsConnection.update({
+      where: { tenantId_clientId: { tenantId, clientId } },
+      data: { lastSyncCompletedAt: null },
+    });
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/v1/results-links',
+      headers: authorization(),
+      payload: {
+        clientId,
+        recipientName: 'Equipo cliente',
+        recipientEmail: 'cliente@example.com',
+        expiresInDays: 7,
+      },
+    });
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toMatchObject({
+      message:
+        'Conecta, configura y sincroniza Google antes de crear un informe para el cliente.',
+    });
+    await prisma.analyticsConnection.update({
+      where: { tenantId_clientId: { tenantId, clientId } },
+      data: { lastSyncCompletedAt: new Date() },
+    });
+  });
+
   it('crea un enlace con token en fragmento y expone solo la vista pública', async () => {
     const created = await app.inject({
       method: 'POST',

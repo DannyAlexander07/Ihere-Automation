@@ -107,6 +107,11 @@ export function ResultsDashboard() {
     "results_links.manage",
     selectedClientId,
   );
+  const resultsReady = Boolean(
+    connection?.connected &&
+      connection.connection?.lastSyncCompletedAt &&
+      (summary?.configured.ga4 || summary?.configured.gsc),
+  );
   const fetchClientData = useCallback(
     async (clientId: string, includeLinks: boolean) => {
       const [
@@ -601,6 +606,12 @@ export function ResultsDashboard() {
             {canManageLinks ? (
               <Button
                 className="h-auto min-h-12 rounded-2xl px-5"
+                disabled={!resultsReady}
+                title={
+                  resultsReady
+                    ? "Crear un enlace del periodo seleccionado"
+                    : "Conecta, configura y sincroniza Google antes de compartir el informe"
+                }
                 onClick={() => {
                   setCreatedUrl("");
                   setLinkOpen(true);

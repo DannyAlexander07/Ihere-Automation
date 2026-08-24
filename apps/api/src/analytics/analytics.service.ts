@@ -467,6 +467,30 @@ export class AnalyticsService {
   ) {
     this.assertPermission(principal, 'results_links.manage', input.clientId);
     const client = await this.assertClient(input.clientId, principal.tenantId);
+    const connection = await this.prisma.analyticsConnection.findUnique({
+      where: {
+        tenantId_clientId: {
+          tenantId: principal.tenantId,
+          clientId: input.clientId,
+        },
+      },
+      select: {
+        status: true,
+        ga4PropertyId: true,
+        gscSiteUrl: true,
+        lastSyncCompletedAt: true,
+      },
+    });
+    if (
+      !connection ||
+      connection.status !== AnalyticsConnectionStatus.CONNECTED ||
+      (!connection.ga4PropertyId && !connection.gscSiteUrl) ||
+      !connection.lastSyncCompletedAt
+    ) {
+      throw new BadRequestException(
+        'Conecta, configura y sincroniza Google antes de crear un informe para el cliente.',
+      );
+    }
     const reportPeriod = reportingPeriod(
       28,
       input.reportStartDate,
