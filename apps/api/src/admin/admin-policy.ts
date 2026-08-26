@@ -4,6 +4,7 @@ export const TENANT_ONLY_PERMISSION_CODES = new Set([
   'audit.read',
   'clients.manage',
   'clients.delete',
+  'notes.export_html',
 ]);
 
 export interface TenantRoleAssignment {

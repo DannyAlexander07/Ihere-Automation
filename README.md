@@ -13,7 +13,7 @@ La primera automatización de I HERE está integrada de extremo a extremo:
 - administración de usuarios, roles, permisos por organización y cliente, sesiones y auditoría;
 - portal de resultados con GA4 y Google Search Console, desempeño por publicación, hitos de 30/60/90 días y enlaces públicos revocables;
 - generación asistida por OpenAI con presupuestos, registro de ejecuciones y evidencia privada;
-- autenticación con DNI como alias, contraseña, sesiones rotativas y controles de aislamiento entre clientes.
+- autenticación con correo corporativo, contraseña, sesiones rotativas y controles de aislamiento entre clientes.
 
 La aplicación web usa Next.js y la API usa NestJS/Fastify, PostgreSQL, Prisma, Redis y BullMQ. Los cambios críticos conservan revisión humana y quedan registrados en auditoría.
 
@@ -37,7 +37,7 @@ pnpm db:seed
 pnpm dev:api
 ```
 
-La API usa `http://localhost:4100/api/v1` y documenta su contrato en `/api/v1/docs`. El seed solo crea un usuario administrador si se definen juntas las variables `BOOTSTRAP_ADMIN_DNI` y `BOOTSTRAP_ADMIN_PASSWORD`.
+La API usa `http://localhost:4100/api/v1` y documenta su contrato en `/api/v1/docs`. El seed solo crea un usuario administrador si se definen juntas las variables `BOOTSTRAP_ADMIN_EMAIL` y `BOOTSTRAP_ADMIN_PASSWORD`.
 
 Las integraciones de OpenAI y Google están desactivadas por defecto. Sus credenciales se configuran únicamente en `apps/api/.env`; nunca deben escribirse en el repositorio. La conexión de GA4/Search Console se completa por OAuth desde el portal de resultados. Consulta [docs/architecture/analytics-results-portal.md](docs/architecture/analytics-results-portal.md).
 

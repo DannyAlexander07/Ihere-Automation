@@ -33,7 +33,7 @@ type AuthStatus = "loading" | "authenticated" | "unauthenticated";
 type AuthContextValue = {
   status: AuthStatus;
   user: AuthUser | null;
-  login: (dni: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<AuthUser>;
   apiFetch: <T>(path: string, init?: RequestInit) => Promise<T>;
@@ -93,10 +93,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [clearSession, refreshAccess]);
 
   const login = useCallback(
-    async (dni: string, password: string) => {
+    async (email: string, password: string) => {
       const response = await apiRequest<AuthResponse>("auth/login", {
         method: "POST",
-        body: JSON.stringify({ dni, password }),
+        body: JSON.stringify({ email, password }),
       });
       applySession(response);
     },

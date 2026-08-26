@@ -32,6 +32,6 @@ pnpm --filter api test:e2e
 pnpm --filter api build
 ```
 
-Las pruebas E2E requieren el PostgreSQL local activo. El seed no crea cuentas automáticamente: las variables `BOOTSTRAP_ADMIN_DNI` y `BOOTSTRAP_ADMIN_PASSWORD` deben proporcionarse juntas y solo para el entorno correspondiente.
+Las pruebas E2E requieren el PostgreSQL local activo. El seed no crea cuentas automáticamente: las variables `BOOTSTRAP_ADMIN_EMAIL` y `BOOTSTRAP_ADMIN_PASSWORD` deben proporcionarse juntas y solo para el entorno correspondiente.
 
 Consulta la explicación completa en `docs/architecture/backend-foundation.md`.

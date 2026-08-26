@@ -1,12 +1,5 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import {
-  IsOptional,
-  IsString,
-  Length,
-  Matches,
-  MaxLength,
-  MinLength,
-} from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
+import { IsString, Length, MaxLength, MinLength } from 'class-validator';
 
 export class ChangeOwnCredentialsDto {
   @ApiProperty({ minLength: 5, maxLength: 128, writeOnly: true })
@@ -14,17 +7,9 @@ export class ChangeOwnCredentialsDto {
   @Length(5, 128)
   currentPassword!: string;
 
-  @ApiPropertyOptional({ pattern: '^\\d{8}$' })
-  @IsOptional()
-  @Matches(/^\d{8}$/, {
-    message: 'El DNI debe contener exactamente 8 dígitos.',
-  })
-  newDni?: string;
-
-  @ApiPropertyOptional({ minLength: 5, maxLength: 128, writeOnly: true })
-  @IsOptional()
+  @ApiProperty({ minLength: 5, maxLength: 128, writeOnly: true })
   @IsString()
   @MinLength(5)
   @MaxLength(128)
-  newPassword?: string;
+  newPassword!: string;
 }

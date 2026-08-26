@@ -6,6 +6,21 @@ import { ConfigService } from '@nestjs/config';
 export class LoginAliasService {
   constructor(private readonly config: ConfigService) {}
 
+  normalizeEmail(value: string): string {
+    const normalized = value.trim().toLowerCase();
+    if (
+      normalized.length > 254 ||
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)
+    ) {
+      throw new BadRequestException('Ingresa un correo válido.');
+    }
+    return normalized;
+  }
+
+  digestEmail(value: string): string {
+    return this.digest(this.normalizeEmail(value));
+  }
+
   normalizeDni(value: string): string {
     const normalized = value.trim();
     if (!/^\d{8}$/.test(normalized)) {
@@ -17,12 +32,15 @@ export class LoginAliasService {
   }
 
   digestDni(value: string): string {
-    const dni = this.normalizeDni(value);
+    return this.digest(this.normalizeDni(value));
+  }
+
+  private digest(value: string): string {
     return createHmac(
       'sha256',
       this.config.getOrThrow<string>('LOGIN_ALIAS_PEPPER'),
     )
-      .update(dni)
+      .update(value)
       .digest('hex');
   }
 }

@@ -68,7 +68,7 @@ export function AccountMenu({
         method: "PATCH",
         body: JSON.stringify({
           displayName: data.get("displayName"),
-          email: data.get("email") || null,
+          email: data.get("email"),
         }),
       });
       await refreshUser();
@@ -92,8 +92,7 @@ export function AccountMenu({
         method: "PATCH",
         body: JSON.stringify({
           currentPassword: data.get("currentPassword"),
-          newDni: data.get("newDni") || undefined,
-          newPassword: data.get("newPassword") || undefined,
+          newPassword: data.get("newPassword"),
         }),
       });
       form.reset();
@@ -317,6 +316,7 @@ export function AccountMenu({
                   name="email"
                   type="email"
                   defaultValue={user?.email ?? ""}
+                  required
                 />
               </div>
             </div>
@@ -330,37 +330,23 @@ export function AccountMenu({
             onSubmit={changeCredentials}
           >
             <div>
-              <h3 className="text-sm font-bold">DNI y contraseña</h3>
+              <h3 className="text-sm font-bold">Cambiar contraseña</h3>
               <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                Por seguridad no mostramos tu DNI actual. Completa únicamente lo
-                que quieras cambiar y confirma con tu contraseña vigente.
+                Confirma tu contraseña vigente antes de registrar una nueva.
               </p>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label htmlFor="preference-new-dni">DNI nuevo (opcional)</Label>
-                <Input
-                  id="preference-new-dni"
-                  name="newDni"
-                  inputMode="numeric"
-                  pattern="[0-9]{8}"
-                  maxLength={8}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="preference-new-password">
-                  Contraseña nueva (opcional)
-                </Label>
-                <Input
-                  id="preference-new-password"
-                  name="newPassword"
-                  type="password"
-                  minLength={5}
-                />
-                <p className="text-[11px] text-muted-foreground">
-                  Mínimo 5 caracteres; recomendamos 12 o más.
-                </p>
-              </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="preference-new-password">Contraseña nueva</Label>
+              <Input
+                id="preference-new-password"
+                name="newPassword"
+                type="password"
+                minLength={5}
+                required
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Mínimo 5 caracteres; recomendamos 12 o más.
+              </p>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="preference-current-password">

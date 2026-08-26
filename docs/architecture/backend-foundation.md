@@ -20,7 +20,7 @@ El backend y PostgreSQL controlan estados, permisos, versiones, decisiones, idem
 
 ## Módulos implementados
 
-- `auth`: login por alias DNI protegido, JWT corto, refresh token opaco rotativo y cierre de sesión revocable.
+- `auth`: login por correo corporativo normalizado, JWT corto, refresh token opaco rotativo y cierre de sesión revocable.
 - `identity`: creación interna de usuarios con Argon2id; no existe registro público.
 - `clients`: consulta aislada por organización y por asignaciones de cliente.
 - `titles`: propuestas, versiones, correcciones, outbox, evaluación automática, duplicidad textual, decisiones humanas y controles de transición.
@@ -31,8 +31,8 @@ El backend y PostgreSQL controlan estados, permisos, versiones, decisiones, idem
 
 ## Modelo de seguridad
 
-1. Cada persona posee un UUID interno. El DNI se normaliza y convierte con HMAC-SHA-256 y un `pepper`; no se almacena el número en texto plano.
-2. La contraseña se almacena con Argon2id. El DNI nunca funciona como contraseña ni como único factor de seguridad.
+1. Cada persona posee un UUID interno. El correo se normaliza y su alias técnico se protege con HMAC-SHA-256 y un `pepper`.
+2. La contraseña se almacena con Argon2id. El correo nunca funciona como contraseña ni como único factor de seguridad.
 3. El access token dura pocos minutos. El refresh token es aleatorio, se guarda únicamente como hash, rota al usarlo y viaja en cookie `HttpOnly` con `SameSite=Strict`.
 4. Los permisos se asignan a nivel de organización o a clientes específicos. Cada consulta vuelve a filtrar por `tenantId`; no confía solo en el token.
 5. No hay autorregistro. El primer administrador se crea explícitamente mediante variables de entorno durante el seed.

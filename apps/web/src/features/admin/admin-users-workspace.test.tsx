@@ -99,13 +99,10 @@ describe("AdminUsersWorkspace", () => {
     fireEvent.click(
       await screen.findByRole("button", { name: "Crear usuario" }),
     );
-    fireEvent.change(screen.getByLabelText("DNI"), {
-      target: { value: "12345678" },
-    });
     fireEvent.change(screen.getByLabelText("Nombre completo"), {
       target: { value: "Nueva Editora" },
     });
-    fireEvent.change(screen.getByLabelText("Correo (opcional)"), {
+    fireEvent.change(screen.getByLabelText("Correo de acceso"), {
       target: { value: "editora@example.invalid" },
     });
     fireEvent.change(screen.getByLabelText("Contraseña temporal"), {
@@ -116,7 +113,6 @@ describe("AdminUsersWorkspace", () => {
       expect(apiFetchMock).toHaveBeenCalledWith("admin/users", {
         method: "POST",
         body: JSON.stringify({
-          dni: "12345678",
           displayName: "Nueva Editora",
           email: "editora@example.invalid",
           password: "ClaveTemporal2026",

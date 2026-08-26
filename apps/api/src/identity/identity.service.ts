@@ -5,7 +5,7 @@ import { PrismaService } from '../database/prisma.service';
 
 interface CreateUserInput {
   tenantId: string;
-  dni: string;
+  dni?: string;
   displayName: string;
   email?: string;
   password: string;
@@ -20,7 +20,15 @@ export class IdentityService {
   ) {}
 
   async createUser(input: CreateUserInput) {
-    const loginAliasDigest = this.aliases.digestDni(input.dni);
+    if (!input.email && !input.dni) {
+      throw new ConflictException('El correo de acceso es obligatorio.');
+    }
+    const email = input.email
+      ? this.aliases.normalizeEmail(input.email)
+      : undefined;
+    const loginAliasDigest = email
+      ? this.aliases.digestEmail(email)
+      : this.aliases.digestDni(input.dni!);
     const existing = await this.prisma.user.findUnique({
       where: {
         tenantId_loginAliasDigest: {
@@ -44,7 +52,7 @@ export class IdentityService {
         tenantId: input.tenantId,
         loginAliasDigest,
         displayName: input.displayName,
-        email: input.email,
+        email,
         passwordHash,
         mfaRequired: input.mfaRequired ?? false,
       },

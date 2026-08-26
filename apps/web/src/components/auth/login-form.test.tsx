@@ -20,11 +20,11 @@ describe("LoginForm", () => {
     replaceMock.mockClear();
   });
 
-  it("valida DNI y contraseña antes de enviarlos", async () => {
+  it("valida correo y contraseña antes de enviarlos", async () => {
     render(<LoginForm />);
 
-    fireEvent.change(screen.getByLabelText("DNI"), {
-      target: { value: "123" },
+    fireEvent.change(screen.getByLabelText("Correo"), {
+      target: { value: "correo-invalido" },
     });
     fireEvent.change(screen.getByLabelText("Contraseña"), {
       target: { value: "1234" },
@@ -34,7 +34,7 @@ describe("LoginForm", () => {
     );
 
     expect(
-      await screen.findByText("Ingresa un DNI de 8 dígitos"),
+      await screen.findByText("Ingresa un correo válido"),
     ).toBeInTheDocument();
     expect(
       screen.getByText("La contraseña debe tener al menos 5 caracteres"),
@@ -48,7 +48,10 @@ describe("LoginForm", () => {
       "autocomplete",
       "off",
     );
-    expect(screen.getByLabelText("DNI")).toHaveAttribute("autocomplete", "off");
+    expect(screen.getByLabelText("Correo")).toHaveAttribute(
+      "autocomplete",
+      "off",
+    );
     expect(screen.getByLabelText("Contraseña")).toHaveAttribute(
       "autocomplete",
       "off",
@@ -58,8 +61,8 @@ describe("LoginForm", () => {
   it("inicia sesión y navega cuando las credenciales son válidas", async () => {
     render(<LoginForm />);
 
-    fireEvent.change(screen.getByLabelText("DNI"), {
-      target: { value: "12345678" },
+    fireEvent.change(screen.getByLabelText("Correo"), {
+      target: { value: "ALEXANDER@EXAMPLE.COM" },
     });
     fireEvent.change(screen.getByLabelText("Contraseña"), {
       target: { value: "clave-segura-2026" },
@@ -69,7 +72,10 @@ describe("LoginForm", () => {
     );
 
     await waitFor(() => {
-      expect(loginMock).toHaveBeenCalledWith("12345678", "clave-segura-2026");
+      expect(loginMock).toHaveBeenCalledWith(
+        "alexander@example.com",
+        "clave-segura-2026",
+      );
       expect(replaceMock).toHaveBeenCalledWith("/inicio");
     });
   });

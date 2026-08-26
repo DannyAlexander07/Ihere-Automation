@@ -1,5 +1,10 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  ApiHideProperty,
+  ApiProperty,
+  ApiPropertyOptional,
+} from '@nestjs/swagger';
+import {
+  IsEmail,
   IsOptional,
   IsString,
   Length,
@@ -20,11 +25,19 @@ export class LoginDto {
   tenantCode?: string;
 
   @ApiProperty({
-    example: '12345678',
-    description: 'Alias de acceso; nunca se persiste en texto plano.',
+    example: 'persona@empresa.com',
+    description: 'Correo corporativo de la cuenta.',
   })
+  @IsOptional()
+  @IsEmail()
+  @MaxLength(254)
+  email?: string;
+
+  /** Compatibilidad exclusiva de fixtures automatizados; no se acepta en producción. */
+  @ApiHideProperty()
+  @IsOptional()
   @Matches(/^\d{8}$/)
-  dni!: string;
+  dni?: string;
 
   @ApiProperty({ minLength: 5 })
   @IsString()

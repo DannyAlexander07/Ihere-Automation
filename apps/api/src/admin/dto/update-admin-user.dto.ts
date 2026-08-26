@@ -18,10 +18,9 @@ export class UpdateAdminUserDto {
   @ApiPropertyOptional({
     format: 'email',
     maxLength: 254,
-    nullable: true,
   })
   @IsOptional()
   @IsEmail()
   @MaxLength(254)
-  email?: string | null;
+  email?: string;
 }

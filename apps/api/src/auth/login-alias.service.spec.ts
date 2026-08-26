@@ -8,6 +8,19 @@ describe('LoginAliasService', () => {
     }),
   );
 
+  it('normaliza el correo y genera el mismo alias sin importar mayúsculas', () => {
+    const digest = service.digestEmail('  AARELLANO@GRUPOSP.PE ');
+    expect(digest).toHaveLength(64);
+    expect(digest).not.toContain('aarellano@gruposp.pe');
+    expect(service.digestEmail('aarellano@gruposp.pe')).toBe(digest);
+  });
+
+  it('rechaza correos inválidos', () => {
+    expect(() => service.digestEmail('correo-invalido')).toThrow(
+      'correo válido',
+    );
+  });
+
   it('produce un alias determinista sin conservar el DNI', () => {
     const digest = service.digestDni('12345678');
     expect(digest).toHaveLength(64);

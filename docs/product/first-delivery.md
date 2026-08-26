@@ -12,7 +12,7 @@ Construir la fundación visual y navegable que heredarán Automatización de not
 
 ## Alcance
 
-- Login responsive con DNI como alias y contraseña.
+- Login responsive con correo corporativo y contraseña.
 - Sesión real con access token en memoria, refresh seguro y cierre de sesión revocable.
 - App Shell con sidebar desplegable, navegación anidada, header, breadcrumbs y perfil.
 - Temas claros I HERE Professional e I HERE Aurora.
@@ -22,7 +22,7 @@ Construir la fundación visual y navegable que heredarán Automatización de not
 
 ## Reglas no negociables
 
-- No usar el DNI como contraseña ni identificador técnico.
+- No usar documentos personales como contraseña ni identificador técnico.
 - La autorización se valida en el backend; la protección visual de rutas no sustituye ese control.
 - No incluir secretos, tokens, credenciales ni datos reales de clientes.
 - No utilizar zoom artificial para compactar la interfaz.

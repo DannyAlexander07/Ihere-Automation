@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
 const phrases = [
   "¡Yo aquí, listo!",
-  "Ocho dígitos, cero drama.",
+  "Tu correo abre el camino.",
   "Prometo no mirar la clave.",
   "¿Café y automatizamos?",
 ] as const;

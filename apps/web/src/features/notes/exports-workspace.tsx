@@ -69,7 +69,7 @@ const formats: Array<{
 ];
 
 export function ExportsWorkspace() {
-  const { apiFetch, apiFetchResponse } = useAuth();
+  const { apiFetch, apiFetchResponse, user } = useAuth();
   const [notes, setNotes] = useState<ApiNoteSummary[]>([]);
   const [artifacts, setArtifacts] = useState<ExportArtifactSummary[]>([]);
   const [search, setSearch] = useState("");
@@ -85,6 +85,13 @@ export function ExportsWorkspace() {
     title: string;
     message: string;
   } | null>(null);
+  const visibleFormats = useMemo(
+    () =>
+      user?.tenantPermissions.includes("notes.export_html")
+        ? formats
+        : formats.filter((format) => format.value !== "HTML"),
+    [user?.tenantPermissions],
+  );
 
   const load = useCallback(
     async (background = false) => {
@@ -368,7 +375,7 @@ export function ExportsWorkspace() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="grid gap-2 sm:grid-cols-3">
-                    {formats.map((format) => {
+                    {visibleFormats.map((format) => {
                       const artifact = artifacts.find(
                         (item) =>
                           item.noteId === note.id &&

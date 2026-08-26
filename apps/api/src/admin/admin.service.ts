@@ -123,21 +123,19 @@ export class AdminService {
   async createUser(principal: AuthPrincipal, input: CreateAdminUserDto) {
     const displayName = this.normalizedName(input.displayName);
     const email = this.normalizedEmail(input.email);
-    const loginAliasDigest = this.aliases.digestDni(input.dni);
+    if (!email) throw new BadRequestException('El correo es obligatorio.');
+    const loginAliasDigest = this.aliases.digestEmail(email);
     const duplicate = await this.prisma.user.findFirst({
       where: {
         tenantId: principal.tenantId,
         OR: [
           { loginAliasDigest },
-          ...(email
-            ? [{ email: { equals: email, mode: 'insensitive' as const } }]
-            : []),
+          { email: { equals: email, mode: 'insensitive' as const } },
         ],
       },
       select: { id: true },
     });
-    if (duplicate)
-      throw new ConflictException('El DNI o correo ya está registrado.');
+    if (duplicate) throw new ConflictException('El correo ya está registrado.');
 
     const passwordHash = await this.passwordHash(input.password);
     try {
@@ -165,7 +163,7 @@ export class AdminService {
       return this.presentUser(created);
     } catch (error) {
       if (this.errorCode(error) === 'P2002')
-        throw new ConflictException('El DNI o correo ya está registrado.');
+        throw new ConflictException('El correo ya está registrado.');
       throw error;
     }
   }
@@ -185,18 +183,19 @@ export class AdminService {
     if (hasName) data.displayName = this.normalizedName(input.displayName!);
     if (hasEmail) {
       data.email = this.normalizedEmail(input.email);
-      if (data.email) {
-        const duplicate = await this.prisma.user.findFirst({
-          where: {
-            tenantId: principal.tenantId,
-            id: { not: id },
-            email: { equals: data.email, mode: 'insensitive' },
-          },
-          select: { id: true },
-        });
-        if (duplicate)
-          throw new ConflictException('El correo ya está registrado.');
-      }
+      if (!data.email)
+        throw new BadRequestException('El correo es obligatorio.');
+      data.loginAliasDigest = this.aliases.digestEmail(String(data.email));
+      const duplicate = await this.prisma.user.findFirst({
+        where: {
+          tenantId: principal.tenantId,
+          id: { not: id },
+          email: { equals: data.email, mode: 'insensitive' },
+        },
+        select: { id: true },
+      });
+      if (duplicate)
+        throw new ConflictException('El correo ya está registrado.');
     }
 
     try {

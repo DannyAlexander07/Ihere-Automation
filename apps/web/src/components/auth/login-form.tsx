@@ -7,7 +7,7 @@ import {
   AlertCircle,
   Eye,
   EyeOff,
-  IdCard,
+  Mail,
   KeyRound,
   LoaderCircle,
   LockKeyhole,
@@ -22,7 +22,7 @@ import { Label } from "@/components/ui/label";
 import { useAuth } from "@/features/auth/auth-provider";
 
 const loginSchema = z.object({
-  dni: z.string().regex(/^\d{8}$/, "Ingresa un DNI de 8 dígitos"),
+  email: z.string().email("Ingresa un correo válido"),
   password: z.string().min(5, "La contraseña debe tener al menos 5 caracteres"),
 });
 
@@ -40,7 +40,7 @@ export function LoginForm({ nextPath = "/inicio" }: { nextPath?: string }) {
     formState: { errors },
   } = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
-    defaultValues: { dni: "", password: "" },
+    defaultValues: { email: "", password: "" },
   });
 
   useEffect(() => {
@@ -51,7 +51,7 @@ export function LoginForm({ nextPath = "/inicio" }: { nextPath?: string }) {
     setServerError(null);
     setSubmitting(true);
     try {
-      await login(values.dni, values.password);
+      await login(values.email.trim().toLowerCase(), values.password);
       router.replace(nextPath);
     } catch (error) {
       setServerError(
@@ -70,23 +70,25 @@ export function LoginForm({ nextPath = "/inicio" }: { nextPath?: string }) {
       noValidate
     >
       <div className="space-y-1.5">
-        <Label htmlFor="dni">DNI</Label>
+        <Label htmlFor="email">Correo</Label>
         <div className="relative">
-          <IdCard className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Mail className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            id="dni"
-            inputMode="numeric"
-            maxLength={8}
-            placeholder="Ingresa tus 8 dígitos"
+            id="email"
+            type="email"
+            inputMode="email"
+            maxLength={254}
+            placeholder="nombre@empresa.com"
+            autoComplete="off"
             className="login-input h-11 pl-10"
-            aria-invalid={Boolean(errors.dni)}
-            aria-describedby={errors.dni ? "dni-error" : undefined}
-            {...register("dni")}
+            aria-invalid={Boolean(errors.email)}
+            aria-describedby={errors.email ? "email-error" : undefined}
+            {...register("email")}
           />
         </div>
-        {errors.dni && (
-          <p id="dni-error" className="text-sm text-destructive">
-            {errors.dni.message}
+        {errors.email && (
+          <p id="email-error" className="text-sm text-destructive">
+            {errors.email.message}
           </p>
         )}
       </div>
@@ -104,6 +106,7 @@ export function LoginForm({ nextPath = "/inicio" }: { nextPath?: string }) {
             id="password"
             type={showPassword ? "text" : "password"}
             placeholder="Ingresa tu contraseña"
+            autoComplete="off"
             className="login-input h-11 px-10"
             aria-invalid={Boolean(errors.password)}
             aria-describedby={errors.password ? "password-error" : undefined}

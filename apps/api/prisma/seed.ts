@@ -38,6 +38,7 @@ const permissions = [
   ['notes.review', 'Solicitar cambios o rechazar notas'],
   ['notes.approve', 'Aprobar versiones de notas'],
   ['notes.export', 'Generar y descargar entregables'],
+  ['notes.export_html', 'Generar, revisar y descargar el código HTML final'],
   ['ai.read', 'Consultar ejecuciones inteligentes autorizadas'],
   ['ai.generate', 'Solicitar generaciones inteligentes con presupuesto'],
   ['learning.read', 'Consultar señales y reglas de aprendizaje editorial'],
@@ -394,10 +395,10 @@ async function main() {
     }
   }
 
-  const dni = process.env.BOOTSTRAP_ADMIN_DNI;
+  const email = process.env.BOOTSTRAP_ADMIN_EMAIL?.trim().toLowerCase();
   const password = process.env.BOOTSTRAP_ADMIN_PASSWORD;
   const pepper = process.env.LOGIN_ALIAS_PEPPER;
-  if (!dni && !password) {
+  if (!email && !password) {
     const existingApprover = await prisma.user.findFirst({
       where: {
         tenantId: tenant.id,
@@ -413,44 +414,56 @@ async function main() {
     return;
   }
   if (
-    !dni ||
+    !email ||
     !password ||
     !pepper ||
-    !/^\d{8}$/.test(dni) ||
+    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
     password.length < 5
   ) {
     throw new Error(
-      'El administrador inicial requiere DNI válido, contraseña de 5+ caracteres y LOGIN_ALIAS_PEPPER.',
+      'El administrador inicial requiere correo válido, contraseña de 5+ caracteres y LOGIN_ALIAS_PEPPER.',
     );
   }
 
   const loginAliasDigest = createHmac('sha256', pepper)
-    .update(dni)
+    .update(email)
     .digest('hex');
-  const passwordHash = await hash(password, {
-    algorithm: 2,
-    memoryCost: 19_456,
-    timeCost: 2,
-    parallelism: 1,
-  });
-  const admin = await prisma.user.upsert({
+  const existingAdmin = await prisma.user.findFirst({
     where: {
-      tenantId_loginAliasDigest: { tenantId: tenant.id, loginAliasDigest },
-    },
-    update: {
-      displayName: process.env.BOOTSTRAP_ADMIN_NAME ?? 'Administrador I HERE',
-      email: process.env.BOOTSTRAP_ADMIN_EMAIL || null,
-      passwordHash,
-      status: 'ACTIVE',
-    },
-    create: {
       tenantId: tenant.id,
-      loginAliasDigest,
-      displayName: process.env.BOOTSTRAP_ADMIN_NAME ?? 'Administrador I HERE',
-      email: process.env.BOOTSTRAP_ADMIN_EMAIL || null,
-      passwordHash,
+      OR: [
+        { email },
+        { roles: { some: { roleId: administrator.id, clientId: null } } },
+      ],
     },
+    orderBy: { createdAt: 'asc' },
   });
+  const admin = existingAdmin
+    ? await prisma.user.update({
+        where: { id: existingAdmin.id },
+        data: {
+          loginAliasDigest,
+          displayName:
+            process.env.BOOTSTRAP_ADMIN_NAME ?? 'Administrador I HERE',
+          email,
+          status: 'ACTIVE',
+        },
+      })
+    : await prisma.user.create({
+        data: {
+          tenantId: tenant.id,
+          loginAliasDigest,
+          displayName:
+            process.env.BOOTSTRAP_ADMIN_NAME ?? 'Administrador I HERE',
+          email,
+          passwordHash: await hash(password, {
+            algorithm: 2,
+            memoryCost: 19_456,
+            timeCost: 2,
+            parallelism: 1,
+          }),
+        },
+      });
   const assignment = await prisma.userRole.findFirst({
     where: { userId: admin.id, roleId: administrator.id, clientId: null },
   });

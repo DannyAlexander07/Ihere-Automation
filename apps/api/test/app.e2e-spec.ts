@@ -379,42 +379,49 @@ describe('I HERE API (e2e)', () => {
     );
     expect(entityIds).not.toContain(forbiddenNoteEntity);
 
-    const [clients, notes, exports, aiRead, aiGenerate] = await Promise.all([
-      app.inject({
-        method: 'GET',
-        url: '/api/v1/clients',
-        headers: { authorization: `Bearer ${token}` },
-      }),
-      app.inject({
-        method: 'GET',
-        url: '/api/v1/notes',
-        headers: { authorization: `Bearer ${token}` },
-      }),
-      app.inject({
-        method: 'GET',
-        url: '/api/v1/exports',
-        headers: { authorization: `Bearer ${token}` },
-      }),
-      app.inject({
-        method: 'GET',
-        url: `/api/v1/ai/generations/${forbiddenAiRun.id}`,
-        headers: { authorization: `Bearer ${token}` },
-      }),
-      app.inject({
-        method: 'POST',
-        url: '/api/v1/ai/generations/titles',
-        headers: { authorization: `Bearer ${token}` },
-        payload: {
-          clientId: clientAId,
-          topic: 'Tema de prueba de permisos',
-          objective: 'No debe ejecutar IA con permisos cruzados.',
-          audience: 'Equipo QA',
-          searchIntent: 'Validación',
-          campaignYear: 2026,
-          campaignMonth: 8,
-        },
-      }),
-    ]);
+    const [clients, notes, exports, htmlExport, aiRead, aiGenerate] =
+      await Promise.all([
+        app.inject({
+          method: 'GET',
+          url: '/api/v1/clients',
+          headers: { authorization: `Bearer ${token}` },
+        }),
+        app.inject({
+          method: 'GET',
+          url: '/api/v1/notes',
+          headers: { authorization: `Bearer ${token}` },
+        }),
+        app.inject({
+          method: 'GET',
+          url: '/api/v1/exports',
+          headers: { authorization: `Bearer ${token}` },
+        }),
+        app.inject({
+          method: 'POST',
+          url: `/api/v1/exports/notes/${forbiddenNote.id}`,
+          headers: { authorization: `Bearer ${token}` },
+          payload: { expectedVersion: 1, format: 'HTML' },
+        }),
+        app.inject({
+          method: 'GET',
+          url: `/api/v1/ai/generations/${forbiddenAiRun.id}`,
+          headers: { authorization: `Bearer ${token}` },
+        }),
+        app.inject({
+          method: 'POST',
+          url: '/api/v1/ai/generations/titles',
+          headers: { authorization: `Bearer ${token}` },
+          payload: {
+            clientId: clientAId,
+            topic: 'Tema de prueba de permisos',
+            objective: 'No debe ejecutar IA con permisos cruzados.',
+            audience: 'Equipo QA',
+            searchIntent: 'Validación',
+            campaignYear: 2026,
+            campaignMonth: 8,
+          },
+        }),
+      ]);
     expect(clients.statusCode).toBe(200);
     expect(
       clients.json<Array<{ id: string }>>().map((item) => item.id),
@@ -427,6 +434,7 @@ describe('I HERE API (e2e)', () => {
     expect(
       exports.json<Array<{ id: string }>>().map((item) => item.id),
     ).not.toContain(forbiddenExport.id);
+    expect(htmlExport.statusCode).toBe(403);
     expect(aiRead.statusCode).toBe(403);
     expect(aiGenerate.statusCode).toBe(403);
   });
@@ -2535,6 +2543,7 @@ describe('I HERE API (e2e)', () => {
       'notes.review',
       'notes.approve',
       'notes.export',
+      'notes.export_html',
       'review_links.manage',
       'analytics.read',
       'analytics.manage',
@@ -2575,6 +2584,7 @@ describe('I HERE API (e2e)', () => {
             'notes.review',
             'notes.approve',
             'notes.export',
+            'notes.export_html',
             'review_links.manage',
             'analytics.read',
             'analytics.manage',

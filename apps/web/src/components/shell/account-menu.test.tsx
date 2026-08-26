@@ -89,8 +89,8 @@ describe("AccountMenu", () => {
     );
     expect(refreshUser).toHaveBeenCalled();
 
-    fireEvent.change(screen.getByLabelText("DNI nuevo (opcional)"), {
-      target: { value: "12345678" },
+    fireEvent.change(screen.getByLabelText("Contraseña nueva"), {
+      target: { value: "nueva-clave" },
     });
     fireEvent.change(screen.getByLabelText("Contraseña actual"), {
       target: { value: "actual" },
@@ -103,8 +103,7 @@ describe("AccountMenu", () => {
         method: "PATCH",
         body: JSON.stringify({
           currentPassword: "actual",
-          newDni: "12345678",
-          newPassword: undefined,
+          newPassword: "nueva-clave",
         }),
       }),
     );

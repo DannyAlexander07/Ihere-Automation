@@ -126,15 +126,27 @@ export class AuthService {
       throw this.invalidCredentials();
     }
 
-    const user = await this.prisma.user.findUnique({
-      where: {
-        tenantId_loginAliasDigest: {
-          tenantId: tenant.id,
-          loginAliasDigest: this.aliases.digestDni(input.dni),
-        },
-      },
-      include: userAccessInclude,
-    });
+    const legacyTestDni =
+      this.config.get<string>('NODE_ENV') === 'test' ? input.dni : undefined;
+    const user = input.email
+      ? await this.prisma.user.findFirst({
+          where: {
+            tenantId: tenant.id,
+            email: this.aliases.normalizeEmail(input.email),
+          },
+          include: userAccessInclude,
+        })
+      : legacyTestDni
+        ? await this.prisma.user.findUnique({
+            where: {
+              tenantId_loginAliasDigest: {
+                tenantId: tenant.id,
+                loginAliasDigest: this.aliases.digestDni(legacyTestDni),
+              },
+            },
+            include: userAccessInclude,
+          })
+        : null;
     const passwordValid = await verify(
       user?.passwordHash ?? DUMMY_PASSWORD_HASH,
       input.password,
@@ -335,7 +347,9 @@ export class AuthService {
     if (!hasName && !hasEmail)
       throw new BadRequestException('No se enviaron cambios para guardar.');
     const displayName = input.displayName?.trim().replace(/\s+/g, ' ');
-    const email = input.email?.trim().toLowerCase() || null;
+    const email = input.email
+      ? this.aliases.normalizeEmail(input.email)
+      : undefined;
     if (email) {
       const duplicate = await this.prisma.user.findFirst({
         where: {
@@ -348,38 +362,46 @@ export class AuthService {
       if (duplicate)
         throw new ConflictException('El correo ya está registrado.');
     }
-    await this.prisma.$transaction(async (tx) => {
-      const current = await tx.user.findFirst({
-        where: { id: principal.userId, tenantId: principal.tenantId },
-        select: { displayName: true, email: true },
-      });
-      if (!current) throw this.invalidCredentials();
-      await tx.user.update({
-        where: { id: principal.userId },
-        data: {
-          ...(hasName ? { displayName } : {}),
-          ...(hasEmail ? { email } : {}),
-        },
-      });
-      await tx.auditLog.create({
-        data: {
-          tenantId: principal.tenantId,
-          userId: principal.userId,
-          actorType: AuditActorType.USER,
-          action: 'auth.profile.updated',
-          entityType: 'User',
-          entityId: principal.userId,
-          requestId: principal.requestId,
-          ipAddress: principal.ipAddress,
-          userAgent: principal.userAgent,
-          before: current,
-          after: {
-            displayName: hasName ? displayName : current.displayName,
-            email: hasEmail ? email : current.email,
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        const current = await tx.user.findFirst({
+          where: { id: principal.userId, tenantId: principal.tenantId },
+          select: { displayName: true, email: true },
+        });
+        if (!current) throw this.invalidCredentials();
+        await tx.user.update({
+          where: { id: principal.userId },
+          data: {
+            ...(hasName ? { displayName } : {}),
+            ...(hasEmail
+              ? { email, loginAliasDigest: this.aliases.digestEmail(email!) }
+              : {}),
           },
-        },
+        });
+        await tx.auditLog.create({
+          data: {
+            tenantId: principal.tenantId,
+            userId: principal.userId,
+            actorType: AuditActorType.USER,
+            action: 'auth.profile.updated',
+            entityType: 'User',
+            entityId: principal.userId,
+            requestId: principal.requestId,
+            ipAddress: principal.ipAddress,
+            userAgent: principal.userAgent,
+            before: current,
+            after: {
+              displayName: hasName ? displayName : current.displayName,
+              email: hasEmail ? email : current.email,
+            },
+          },
+        });
       });
-    });
+    } catch (error) {
+      if (this.errorCode(error) === 'P2002')
+        throw new ConflictException('El correo ya está registrado.');
+      throw error;
+    }
     return this.me(principal);
   }
 
@@ -387,13 +409,9 @@ export class AuthService {
     principal: AuthPrincipal,
     input: ChangeOwnCredentialsDto,
   ) {
-    if (!input.newDni && !input.newPassword)
-      throw new BadRequestException(
-        'Ingresa un DNI nuevo o una contraseña nueva.',
-      );
     const current = await this.prisma.user.findFirst({
       where: { id: principal.userId, tenantId: principal.tenantId },
-      select: { id: true, passwordHash: true, loginAliasDigest: true },
+      select: { id: true, passwordHash: true },
     });
     if (
       !current ||
@@ -401,31 +419,16 @@ export class AuthService {
     )
       throw new UnauthorizedException('La contraseña actual no es correcta.');
 
-    const loginAliasDigest = input.newDni
-      ? this.aliases.digestDni(input.newDni)
-      : undefined;
-    if (loginAliasDigest && loginAliasDigest !== current.loginAliasDigest) {
-      const duplicate = await this.prisma.user.findFirst({
-        where: { tenantId: principal.tenantId, loginAliasDigest },
-        select: { id: true },
-      });
-      if (duplicate) throw new ConflictException('El DNI ya está registrado.');
-    }
-    const passwordHash = input.newPassword
-      ? await hash(input.newPassword, {
-          algorithm: 2,
-          memoryCost: 19_456,
-          timeCost: 2,
-          parallelism: 1,
-        })
-      : undefined;
+    const passwordHash = await hash(input.newPassword, {
+      algorithm: 2,
+      memoryCost: 19_456,
+      timeCost: 2,
+      parallelism: 1,
+    });
     const revokedSessions = await this.prisma.$transaction(async (tx) => {
       await tx.user.update({
         where: { id: principal.userId },
-        data: {
-          ...(loginAliasDigest ? { loginAliasDigest } : {}),
-          ...(passwordHash ? { passwordHash } : {}),
-        },
+        data: { passwordHash },
       });
       const revoked = await tx.session.updateMany({
         where: {
@@ -447,8 +450,7 @@ export class AuthService {
           ipAddress: principal.ipAddress,
           userAgent: principal.userAgent,
           after: {
-            dniChanged: Boolean(loginAliasDigest),
-            passwordChanged: Boolean(passwordHash),
+            passwordChanged: true,
             revokedSessions: revoked.count,
           },
         },
@@ -675,6 +677,14 @@ export class AuthService {
 
   private digestToken(token: string): string {
     return createHash('sha256').update(token).digest('hex');
+  }
+
+  private errorCode(error: unknown): string | undefined {
+    if (typeof error !== 'object' || error === null || !('code' in error)) {
+      return undefined;
+    }
+
+    return String((error as { code?: unknown }).code);
   }
 
   private refreshExpiry(): Date {

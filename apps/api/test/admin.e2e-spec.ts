@@ -57,7 +57,7 @@ describe('I HERE administración (e2e)', () => {
   it('rechaza un permiso administrativo limitado a un cliente', async () => {
     const scopedUser = await identity.createUser({
       tenantId,
-      dni: '31000003',
+      email: '31000003@mood.pe',
       displayName: 'Administración limitada',
       password,
     });
@@ -105,7 +105,7 @@ describe('I HERE administración (e2e)', () => {
       url: '/api/v1/admin/users',
       headers: authorization(administratorToken),
       payload: {
-        dni: '31000009',
+        email: '31000009@mood.pe',
         displayName: 'Contraseña débil',
         password: '1234',
       },
@@ -117,7 +117,6 @@ describe('I HERE administración (e2e)', () => {
       url: '/api/v1/admin/users',
       headers: authorization(administratorToken),
       payload: {
-        dni: '31000004',
         displayName: '  Usuaria   administrada  ',
         email: 'USUARIA@MOOD.PE',
         password,
@@ -137,13 +136,16 @@ describe('I HERE administración (e2e)', () => {
       method: 'PATCH',
       url: `/api/v1/admin/users/${user.id}`,
       headers: authorization(administratorToken),
-      payload: { displayName: 'Usuaria revisada', email: null },
+      payload: {
+        displayName: 'Usuaria revisada',
+        email: 'usuaria-revisada@mood.pe',
+      },
     });
     expect(updated.statusCode).toBe(200);
     expect(updated.json()).toMatchObject({
       id: user.id,
       displayName: 'Usuaria revisada',
-      email: null,
+      email: 'usuaria-revisada@mood.pe',
     });
 
     const listed = await app.inject({
@@ -233,7 +235,7 @@ describe('I HERE administración (e2e)', () => {
       method: 'POST',
       url: '/api/v1/auth/login',
       remoteAddress: nextLoginAddress(),
-      payload: { tenantCode, dni: '31000010', password: 'abcde' },
+      payload: { tenantCode, email: '31000010@mood.pe', password: 'abcde' },
     });
     expect(newLogin.statusCode).toBe(201);
     const audit = await prisma.auditLog.findFirstOrThrow({
@@ -296,7 +298,7 @@ describe('I HERE administración (e2e)', () => {
     expect(access.clientPermissions[clientId]).not.toContain('titles.edit');
   });
 
-  it('permite actualizar perfil, DNI y contraseña propios', async () => {
+  it('permite actualizar el correo de acceso y la contraseña propios', async () => {
     const created = await createManagedUser('31000012', 'Perfil propio');
     const token = await login('31000012');
     const profile = await app.inject({
@@ -318,7 +320,6 @@ describe('I HERE administración (e2e)', () => {
       headers: authorization(token),
       payload: {
         currentPassword: password,
-        newDni: '31000013',
         newPassword: 'abcde',
       },
     });
@@ -333,7 +334,7 @@ describe('I HERE administración (e2e)', () => {
       method: 'POST',
       url: '/api/v1/auth/login',
       remoteAddress: nextLoginAddress(),
-      payload: { tenantCode, dni: '31000013', password: 'abcde' },
+      payload: { tenantCode, email: 'perfil@mood.pe', password: 'abcde' },
     });
     expect(changedLogin.statusCode).toBe(201);
   });
@@ -431,7 +432,7 @@ describe('I HERE administración (e2e)', () => {
     foreignTenantId = foreignTenant.id;
     const foreignUser = await identity.createUser({
       tenantId: foreignTenantId,
-      dni: '31999999',
+      email: '31999999@mood.pe',
       displayName: 'Usuario de otra organización',
       password,
     });
@@ -493,14 +494,14 @@ describe('I HERE administración (e2e)', () => {
 
     const administrator = await identity.createUser({
       tenantId,
-      dni: '31000001',
+      email: '31000001@mood.pe',
       displayName: 'Administrador E2E',
       password,
     });
     administratorId = administrator.id;
     const operator = await identity.createUser({
       tenantId,
-      dni: '31000002',
+      email: '31000002@mood.pe',
       displayName: 'Operador E2E',
       password,
     });
@@ -546,12 +547,15 @@ describe('I HERE administración (e2e)', () => {
     });
   }
 
-  async function login(dni: string) {
+  async function login(identifier: string) {
+    const email = identifier.includes('@')
+      ? identifier
+      : `${identifier}@mood.pe`;
     const response = await app.inject({
       method: 'POST',
       url: '/api/v1/auth/login',
       remoteAddress: nextLoginAddress(),
-      payload: { tenantCode, dni, password },
+      payload: { tenantCode, email, password },
     });
     expect(response.statusCode).toBe(201);
     return response.json<{ accessToken: string }>().accessToken;
@@ -563,11 +567,12 @@ describe('I HERE administración (e2e)', () => {
   }
 
   async function createManagedUser(dni: string, displayName: string) {
+    const email = `${dni}@mood.pe`;
     const response = await app.inject({
       method: 'POST',
       url: '/api/v1/admin/users',
       headers: authorization(administratorToken),
-      payload: { dni, displayName, password },
+      payload: { email, displayName, password },
     });
     expect(response.statusCode).toBe(201);
     return response.json<{ id: string }>();

@@ -15,9 +15,9 @@ export class UpdateOwnProfileDto {
   @MaxLength(160)
   displayName?: string;
 
-  @ApiPropertyOptional({ format: 'email', maxLength: 254, nullable: true })
+  @ApiPropertyOptional({ format: 'email', maxLength: 254 })
   @IsOptional()
   @IsEmail()
   @MaxLength(254)
-  email?: string | null;
+  email?: string;
 }

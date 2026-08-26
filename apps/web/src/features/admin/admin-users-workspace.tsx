@@ -556,9 +556,8 @@ function CreateUserDialog({
       const created = await apiFetch<AdminUser>("admin/users", {
         method: "POST",
         body: JSON.stringify({
-          dni: data.get("dni"),
           displayName: data.get("displayName"),
-          email: data.get("email") || null,
+          email: data.get("email"),
           password: data.get("password"),
         }),
       });
@@ -631,28 +630,20 @@ function CreateUserDialog({
             ) : null}
             <div className="grid gap-3 sm:grid-cols-2">
               <Field
-                id="new-dni"
-                name="dni"
-                label="DNI"
-                inputMode="numeric"
-                pattern="[0-9]{8}"
-                maxLength={8}
-                required
-              />
-              <Field
                 id="new-name"
                 name="displayName"
                 label="Nombre completo"
                 minLength={2}
                 required
               />
+              <Field
+                id="new-email"
+                name="email"
+                label="Correo de acceso"
+                type="email"
+                required
+              />
             </div>
-            <Field
-              id="new-email"
-              name="email"
-              label="Correo (opcional)"
-              type="email"
-            />
             <Field
               id="new-password"
               name="password"
@@ -745,7 +736,7 @@ function UserDetailSheet({
         method: "PATCH",
         body: JSON.stringify({
           displayName: data.get("displayName"),
-          email: data.get("email") || null,
+          email: data.get("email"),
         }),
       },
       "Los datos del usuario fueron actualizados.",
@@ -853,6 +844,7 @@ function UserDetailSheet({
               label="Correo"
               type="email"
               defaultValue={user.email ?? ""}
+              required
             />
             <Button size="sm" type="submit" disabled={busy}>
               Guardar cambios

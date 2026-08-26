@@ -13,6 +13,7 @@ import {
 import { PrismaService } from '../database/prisma.service';
 import {
   AuditActorType,
+  ExportFormat,
   ExportStatus,
   NoteStatus,
   OutboxJobStatus,
@@ -35,6 +36,9 @@ export class ExportsService {
     const tenantWide = principal.tenantPermissions.includes('notes.export');
     return this.prisma.exportArtifact.findMany({
       where: {
+        ...(principal.tenantPermissions.includes('notes.export_html')
+          ? {}
+          : { format: { not: ExportFormat.HTML } }),
         note: {
           tenantId: principal.tenantId,
           ...(tenantWide
@@ -87,6 +91,7 @@ export class ExportsService {
     input: CreateExportDto,
     principal: AuthPrincipal,
   ) {
+    this.assertFormatPermission(principal, input.format);
     const note = await this.prisma.noteDocument.findFirst({
       where: { id: noteId, tenantId: principal.tenantId },
     });
@@ -216,6 +221,7 @@ export class ExportsService {
       include: { note: true },
     });
     if (!artifact) throw new NotFoundException('Exportación no encontrada.');
+    this.assertFormatPermission(principal, artifact.format);
     this.assertClientPermission(principal, artifact.note.clientId);
     if (
       artifact.status !== ExportStatus.READY ||
@@ -292,6 +298,7 @@ export class ExportsService {
       include: { note: true },
     });
     if (!artifact) throw new NotFoundException('Exportación no encontrada.');
+    this.assertFormatPermission(principal, artifact.format);
     this.assertClientPermission(principal, artifact.note.clientId);
     if (artifact.status !== ExportStatus.READY || !artifact.verifiedAt) {
       throw new ConflictException(
@@ -357,6 +364,7 @@ export class ExportsService {
       include: { note: true },
     });
     if (!artifact) throw new NotFoundException('Exportación no encontrada.');
+    this.assertFormatPermission(principal, artifact.format);
     this.assertClientPermission(principal, artifact.note.clientId);
     if (
       artifact.status !== ExportStatus.READY ||
@@ -499,6 +507,20 @@ export class ExportsService {
   private assertClientPermission(principal: AuthPrincipal, clientId: string) {
     if (!hasPermission(principal, 'notes.export', clientId)) {
       throw new ForbiddenException('No tienes permisos para este cliente.');
+    }
+  }
+
+  private assertFormatPermission(
+    principal: AuthPrincipal,
+    format: ExportFormat,
+  ) {
+    if (
+      format === ExportFormat.HTML &&
+      !principal.tenantPermissions.includes('notes.export_html')
+    ) {
+      throw new ForbiddenException(
+        'La generación y descarga de HTML está reservada al administrador.',
+      );
     }
   }
 }
