@@ -79,6 +79,9 @@ type Props = {
 const selectClass =
   "h-11 w-full rounded-lg border border-input bg-background px-3.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
+const automaticEditorialChangeReason =
+  "Corrección editorial realizada durante la revisión interna.";
+
 export function TitleDetailSheet(props: Props) {
   const { candidate, onDecision, onEdit, onResolveDuplicate, onShare } = props;
   return (
@@ -90,7 +93,7 @@ export function TitleDetailSheet(props: Props) {
       >
         {candidate && (
           <TitleDetailBody
-            key={candidate.id}
+            key={`${candidate.id}:${candidate.currentVersion ?? "local"}`}
             candidate={candidate}
             onDecision={onDecision}
             onEdit={onEdit}
@@ -143,8 +146,28 @@ function TitleDetailBody({
   const editable = ["draft", "proposed", "changes_requested"].includes(
     candidate.status,
   );
+  const hasEditorialChanges =
+    draft.title.trim() !== candidate.title.trim() ||
+    draft.objective.trim() !== candidate.objective.trim() ||
+    draft.audience.trim() !== candidate.audience.trim() ||
+    draft.searchIntent.trim() !== candidate.intent.trim() ||
+    draft.focus.trim() !== candidate.focus.trim() ||
+    draft.opportunity.trim() !== candidate.opportunity.trim() ||
+    draft.risk.trim() !== candidate.risk.trim();
+  const validEditorialDraft =
+    draft.title.trim().length >= 10 &&
+    draft.objective.trim().length >= 10 &&
+    draft.audience.trim().length >= 3 &&
+    draft.searchIntent.trim().length >= 3 &&
+    draft.focus.trim().length >= 3;
+  const needsDetailedReason = correctionType !== "one_off";
+  const validCorrectionContext =
+    (!needsDetailedReason || reason.trim().length >= 5) &&
+    (correctionType !== "permanent_preference" || confirmedPermanent);
 
   const saveEdit = () => {
+    const changeReason =
+      reason.trim() || automaticEditorialChangeReason;
     onEdit(
       candidate.id,
       {
@@ -157,7 +180,7 @@ function TitleDetailBody({
         risk: draft.risk.trim(),
       },
       correctionType,
-      reason.trim(),
+      changeReason,
       confirmedPermanent,
     );
     setEditing(false);
@@ -358,7 +381,9 @@ function TitleDetailBody({
                         </select>
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor={`reason-${candidate.id}`}>Motivo</Label>
+                        <Label htmlFor={`reason-${candidate.id}`}>
+                          Motivo {needsDetailedReason ? "" : "(opcional)"}
+                        </Label>
                         <Textarea
                           id={`reason-${candidate.id}`}
                           value={reason}
@@ -366,6 +391,11 @@ function TitleDetailBody({
                           placeholder="Explica qué debe aprender el sistema"
                           className="min-h-20 bg-card px-3.5 py-3"
                         />
+                        <p className="text-xs leading-5 text-muted-foreground">
+                          {needsDetailedReason
+                            ? "Explica el criterio aplicado para conservar la trazabilidad."
+                            : "Si lo dejas vacío, I HERE registrará que fue una corrección editorial interna."}
+                        </p>
                       </div>
                     </div>
                     {correctionType === "permanent_preference" && (
@@ -388,14 +418,9 @@ function TitleDetailBody({
                       disabled={
                         busy ||
                         !permissions.canEditAndEvaluate ||
-                        draft.title.trim().length < 10 ||
-                        draft.objective.trim().length < 10 ||
-                        draft.audience.trim().length < 3 ||
-                        draft.searchIntent.trim().length < 3 ||
-                        draft.focus.trim().length < 3 ||
-                        !reason.trim() ||
-                        (correctionType === "permanent_preference" &&
-                          !confirmedPermanent)
+                        !hasEditorialChanges ||
+                        !validEditorialDraft ||
+                        !validCorrectionContext
                       }
                     >
                       <Save />
