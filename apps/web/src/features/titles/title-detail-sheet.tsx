@@ -315,14 +315,21 @@ function TitleDetailBody({
                           setDraft((current) => ({ ...current, audience }))
                         }
                       />
-                      <EditField
-                        id={`intent-${candidate.id}`}
-                        label="Intención"
-                        value={draft.searchIntent}
-                        onChange={(searchIntent) =>
-                          setDraft((current) => ({ ...current, searchIntent }))
-                        }
-                      />
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-medium">Intención</p>
+                          <Badge variant="outline">Solo lectura</Badge>
+                        </div>
+                        <div className="min-h-20 rounded-lg border bg-muted/60 px-3.5 py-3">
+                          <p className="text-sm font-semibold">
+                            {draft.searchIntent}
+                          </p>
+                          <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                            Se conserva la intención definida al preparar el
+                            título.
+                          </p>
+                        </div>
+                      </div>
                       <EditField
                         id={`focus-${candidate.id}`}
                         label="Enfoque"

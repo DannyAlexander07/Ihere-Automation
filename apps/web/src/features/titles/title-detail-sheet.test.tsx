@@ -8,7 +8,6 @@ describe("TitleDetailSheet", () => {
     ["Título", "Guía práctica para tomar mejores decisiones sobre talento en empresas peruanas"],
     ["Objetivo editorial", "Nuevo objetivo editorial verificable para la nota."],
     ["Público", "Gerencias y equipos de Recursos Humanos"],
-    ["Intención", "Comparar alternativas antes de decidir"],
     ["Enfoque", "Criterios prácticos y verificables para la toma de decisiones"],
     ["Oportunidad", "Aportar una herramienta útil y diferenciada."],
     ["Riesgo a evitar", "No presentar afirmaciones sin respaldo institucional."],
@@ -56,7 +55,6 @@ describe("TitleDetailSheet", () => {
               Título: "title",
               "Objetivo editorial": "objective",
               Público: "audience",
-              Intención: "searchIntent",
               Enfoque: "focus",
               Oportunidad: "opportunity",
               "Riesgo a evitar": "risk",
@@ -97,7 +95,13 @@ describe("TitleDetailSheet", () => {
       candidate.objective,
     );
     expect(screen.getByLabelText("Público")).toHaveValue(candidate.audience);
-    expect(screen.getByLabelText("Intención")).toHaveValue(candidate.intent);
+    expect(screen.queryByLabelText("Intención")).not.toBeInTheDocument();
+    expect(screen.getByText("Solo lectura")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Se conserva la intención definida al preparar el título.",
+      ),
+    ).toBeInTheDocument();
     expect(screen.getByLabelText("Enfoque")).toHaveValue(candidate.focus);
     expect(screen.getByLabelText("Oportunidad")).toHaveValue(
       candidate.opportunity,
