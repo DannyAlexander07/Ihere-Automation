@@ -398,6 +398,7 @@ async function main() {
   const email = process.env.BOOTSTRAP_ADMIN_EMAIL?.trim().toLowerCase();
   const password = process.env.BOOTSTRAP_ADMIN_PASSWORD;
   const pepper = process.env.LOGIN_ALIAS_PEPPER;
+  const configuredAdminName = process.env.BOOTSTRAP_ADMIN_NAME?.trim();
   if (!email && !password) {
     const existingApprover = await prisma.user.findFirst({
       where: {
@@ -443,8 +444,7 @@ async function main() {
         where: { id: existingAdmin.id },
         data: {
           loginAliasDigest,
-          displayName:
-            process.env.BOOTSTRAP_ADMIN_NAME ?? 'Administrador I HERE',
+          displayName: configuredAdminName || existingAdmin.displayName,
           email,
           status: 'ACTIVE',
         },
@@ -453,8 +453,7 @@ async function main() {
         data: {
           tenantId: tenant.id,
           loginAliasDigest,
-          displayName:
-            process.env.BOOTSTRAP_ADMIN_NAME ?? 'Administrador I HERE',
+          displayName: configuredAdminName || 'Administrador I HERE',
           email,
           passwordHash: await hash(password!, {
             algorithm: 2,
