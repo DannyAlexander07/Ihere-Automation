@@ -413,21 +413,12 @@ async function main() {
     );
     return;
   }
-  if (
-    !email ||
-    !password ||
-    !pepper ||
-    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
-    password.length < 5
-  ) {
+  if (!email || !pepper || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     throw new Error(
-      'El administrador inicial requiere correo válido, contraseña de 5+ caracteres y LOGIN_ALIAS_PEPPER.',
+      'El administrador inicial requiere correo válido y LOGIN_ALIAS_PEPPER.',
     );
   }
 
-  const loginAliasDigest = createHmac('sha256', pepper)
-    .update(email)
-    .digest('hex');
   const existingAdmin = await prisma.user.findFirst({
     where: {
       tenantId: tenant.id,
@@ -438,6 +429,15 @@ async function main() {
     },
     orderBy: { createdAt: 'asc' },
   });
+  if (!existingAdmin && (!password || password.length < 5)) {
+    throw new Error(
+      'Para crear un administrador inicial se requiere una contraseña de 5+ caracteres.',
+    );
+  }
+
+  const loginAliasDigest = createHmac('sha256', pepper)
+    .update(email)
+    .digest('hex');
   const admin = existingAdmin
     ? await prisma.user.update({
         where: { id: existingAdmin.id },
@@ -456,7 +456,7 @@ async function main() {
           displayName:
             process.env.BOOTSTRAP_ADMIN_NAME ?? 'Administrador I HERE',
           email,
-          passwordHash: await hash(password, {
+          passwordHash: await hash(password!, {
             algorithm: 2,
             memoryCost: 19_456,
             timeCost: 2,
