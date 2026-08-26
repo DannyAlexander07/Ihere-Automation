@@ -310,6 +310,55 @@ describe("NoteEditorWorkspace", () => {
     expect(screen.getByDisplayValue("Título vigente corregido")).toBeEnabled();
   });
 
+  it("permite crear una versión corregida después del QA sin reutilizar esa evaluación", async () => {
+    apiFetchMock.mockResolvedValue(note("READY_FOR_REVIEW"));
+
+    render(<NoteEditorWorkspace noteId="note-1" />);
+
+    expect(
+      await screen.findByDisplayValue("Título vigente corregido"),
+    ).toBeEnabled();
+    expect(
+      screen.getByRole("button", { name: "Guardar nueva versión" }),
+    ).toBeEnabled();
+    expect(
+      screen.getByText("Puedes revisar y editar antes de compartir"),
+    ).toBeVisible();
+    expect(
+      screen.queryByRole("button", { name: "Enviar a QA" }),
+    ).toBeNull();
+  });
+
+  it("vuelve a borrador y habilita QA después de guardar la corrección revisable", async () => {
+    apiFetchMock
+      .mockResolvedValueOnce(note("READY_FOR_REVIEW"))
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce(note("DRAFT"));
+
+    render(<NoteEditorWorkspace noteId="note-1" />);
+
+    fireEvent.change(
+      await screen.findByLabelText("Motivo de esta nueva versión"),
+      { target: { value: "Ajustar el contenido después de la revisión interna." } },
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Guardar nueva versión" }),
+    );
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Enviar a QA" }),
+      ).toBeEnabled(),
+    );
+    expect(apiFetchMock).toHaveBeenCalledWith(
+      "notes/note-1",
+      expect.objectContaining({ method: "PATCH" }),
+    );
+    expect(
+      screen.queryByRole("button", { name: "Compartir con cliente" }),
+    ).toBeNull();
+  });
+
   it("no usa permisos agregados de otro cliente para habilitar acciones", async () => {
     authState.user = {
       ...user([]),

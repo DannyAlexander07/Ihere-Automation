@@ -204,7 +204,9 @@ export function NoteEditorWorkspace({ noteId }: { noteId: string }) {
   const workflowEditable =
     note?.status === "DRAFT" || note?.status === "CHANGES_REQUESTED";
   const canCreateManualRevision =
-    workflowEditable || note?.status === "EXPORTED";
+    workflowEditable ||
+    note?.status === "READY_FOR_REVIEW" ||
+    note?.status === "EXPORTED";
   const canSave =
     viewingCurrent &&
     canCreateManualRevision &&
@@ -469,6 +471,8 @@ export function NoteEditorWorkspace({ noteId }: { noteId: string }) {
               <Save />
               {note.status === "EXPORTED"
                 ? "Crear corrección"
+                : note.status === "READY_FOR_REVIEW"
+                  ? "Guardar nueva versión"
                 : "Guardar versión"}
             </Button>
           ) : null}
@@ -561,6 +565,17 @@ export function NoteEditorWorkspace({ noteId }: { noteId: string }) {
             Edita el contenido y crea una corrección. I HERE abrirá una versión
             nueva en borrador, revocará los enlaces de revisión anteriores y
             mantendrá descargables los archivos ya entregados.
+          </AlertDescription>
+        </Alert>
+      ) : null}
+      {note.status === "READY_FOR_REVIEW" ? (
+        <Alert className="border-sky-200 bg-sky-50 text-sky-950">
+          <Pencil />
+          <AlertTitle>Puedes revisar y editar antes de compartir</AlertTitle>
+          <AlertDescription>
+            Si guardas un cambio, I HERE conservará esta versión y creará una
+            nueva en borrador. La nueva versión deberá pasar nuevamente por QA
+            antes de enviarse al cliente.
           </AlertDescription>
         </Alert>
       ) : null}

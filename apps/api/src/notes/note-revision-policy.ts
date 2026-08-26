@@ -3,6 +3,7 @@ import { NoteStatus } from '../generated/prisma/client';
 const revisionSourceStatuses = new Set<NoteStatus>([
   NoteStatus.DRAFT,
   NoteStatus.CHANGES_REQUESTED,
+  NoteStatus.READY_FOR_REVIEW,
   NoteStatus.EXPORTED,
 ]);
 
