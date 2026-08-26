@@ -96,7 +96,9 @@ describe('I HERE portal de resultados (e2e)', () => {
       topPages: [{ pagePath: '/blog/empleo', sessions: 80 }],
       topQueries: [{ query: 'empleos peru', clicks: 25 }],
     });
-    expect(response.body).toContain('no atribuyen causalidad');
+    expect(response.body).toContain('Fuentes del informe: GA4');
+    expect(response.body).toContain('Sesiones, usuarios activos');
+    expect(response.body).toContain('Clics, impresiones, CTR');
   });
 
   it('refleja la conexión analítica real en el inicio', async () => {
