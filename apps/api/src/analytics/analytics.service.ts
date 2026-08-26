@@ -682,6 +682,7 @@ export class AnalyticsService {
           ? this.google.ga4Metrics({
               accessToken,
               propertyId: connection.ga4PropertyId,
+              siteUrl: connection.gscSiteUrl ?? undefined,
               startDate: range.startText,
               endDate: range.endText,
             })

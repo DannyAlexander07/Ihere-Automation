@@ -245,11 +245,23 @@ export class GoogleAnalyticsProviderService {
   async ga4Metrics(input: {
     accessToken: string;
     propertyId: string;
+    siteUrl?: string;
     startDate: string;
     endDate: string;
   }): Promise<Ga4MetricRow[]> {
     const collected: Ga4MetricRow[] = [];
     const pageSize = 100_000;
+    const blogPathPrefix = configuredBlogPath(input.siteUrl);
+    const blogFilter = {
+      filter: {
+        fieldName: 'pagePath',
+        stringFilter: {
+          matchType: 'BEGINS_WITH',
+          value: blogPathPrefix,
+          caseSensitive: false,
+        },
+      },
+    };
     const totals = await this.request(
       `https://analyticsdata.googleapis.com/v1beta/properties/${encodeURIComponent(input.propertyId)}:runReport`,
       {
@@ -269,16 +281,7 @@ export class GoogleAnalyticsProviderService {
             { name: 'userEngagementDuration' },
             { name: 'keyEvents' },
           ],
-          dimensionFilter: {
-            filter: {
-              fieldName: 'pagePath',
-              stringFilter: {
-                matchType: 'CONTAINS',
-                value: '/blog',
-                caseSensitive: false,
-              },
-            },
-          },
+          dimensionFilter: blogFilter,
           limit: 100_000,
           keepEmptyRows: false,
         }),
@@ -323,6 +326,7 @@ export class GoogleAnalyticsProviderService {
               { name: 'userEngagementDuration' },
               { name: 'keyEvents' },
             ],
+            dimensionFilter: blogFilter,
             limit: pageSize,
             offset,
             keepEmptyRows: false,
@@ -336,9 +340,11 @@ export class GoogleAnalyticsProviderService {
         const dimensions = row.dimensionValues.map((item) => item.value);
         const metrics = row.metricValues.map((item) => item.value);
         if (!/^\d{8}$/.test(dimensions[0] ?? '')) continue;
+        const pagePath = (dimensions[1] || '/').slice(0, 2048);
+        if (!pagePathMatchesBlogScope(pagePath, blogPathPrefix)) continue;
         collected.push({
           date: compactDate(dimensions[0]),
-          pagePath: (dimensions[1] || '/').slice(0, 2048),
+          pagePath,
           sessions: integer(metrics[0]),
           activeUsers: integer(metrics[1]),
           views: integer(metrics[2]),
@@ -364,6 +370,18 @@ export class GoogleAnalyticsProviderService {
   }): Promise<GscMetricRow[]> {
     const collected: GscMetricRow[] = [];
     const pageSize = 25_000;
+    const blogPathPrefix = configuredBlogPath(input.siteUrl);
+    const blogFilterGroups = [
+      {
+        filters: [
+          {
+            dimension: 'page',
+            operator: 'contains',
+            expression: blogPathPrefix,
+          },
+        ],
+      },
+    ];
     const totals = await this.request(
       `https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(input.siteUrl)}/searchAnalytics/query`,
       {
@@ -376,17 +394,7 @@ export class GoogleAnalyticsProviderService {
           startDate: input.startDate,
           endDate: input.endDate,
           dimensions: ['date'],
-          dimensionFilterGroups: [
-            {
-              filters: [
-                {
-                  dimension: 'page',
-                  operator: 'contains',
-                  expression: '/blog',
-                },
-              ],
-            },
-          ],
+          dimensionFilterGroups: blogFilterGroups,
           type: 'web',
           dataState: 'final',
           rowLimit: pageSize,
@@ -421,6 +429,7 @@ export class GoogleAnalyticsProviderService {
             startDate: input.startDate,
             endDate: input.endDate,
             dimensions: ['date', 'page', 'query'],
+            dimensionFilterGroups: blogFilterGroups,
             type: 'web',
             dataState: 'final',
             rowLimit: pageSize,
@@ -434,6 +443,8 @@ export class GoogleAnalyticsProviderService {
       for (const row of rows) {
         const [dateValue, pageValue, queryValue] = row.keys;
         if (!dateValue || !pageValue || queryValue === undefined) continue;
+        if (!pageMatchesSiteBlogScope(pageValue, input.siteUrl, blogPathPrefix))
+          continue;
         collected.push({
           date: isoDate(dateValue),
           page: pageValue.slice(0, 2048),
@@ -507,6 +518,44 @@ export class GoogleAnalyticsProviderService {
         'La integración con Google Analytics no está habilitada.',
       );
     }
+  }
+}
+
+function configuredBlogPath(siteUrl?: string): string {
+  if (!siteUrl || siteUrl.startsWith('sc-domain:')) return '/blog';
+  try {
+    const pathname = new URL(siteUrl).pathname.replace(/\/+$/, '');
+    return `${pathname}/blog`.replace(/\/{2,}/g, '/');
+  } catch {
+    return '/blog';
+  }
+}
+
+function pagePathMatchesBlogScope(
+  pagePath: string,
+  blogPathPrefix: string,
+): boolean {
+  const normalized = pagePath.split(/[?#]/, 1)[0]?.replace(/\/+$/, '') || '/';
+  const prefix = blogPathPrefix.replace(/\/+$/, '');
+  return normalized === prefix || normalized.startsWith(`${prefix}/`);
+}
+
+function pageMatchesSiteBlogScope(
+  page: string,
+  siteUrl: string,
+  blogPathPrefix: string,
+): boolean {
+  try {
+    const pageUrl = new URL(page);
+    if (!pagePathMatchesBlogScope(pageUrl.pathname, blogPathPrefix))
+      return false;
+    if (siteUrl.startsWith('sc-domain:')) {
+      return pageUrl.hostname === siteUrl.slice('sc-domain:'.length);
+    }
+    const configured = new URL(siteUrl);
+    return pageUrl.origin === configured.origin;
+  } catch {
+    return false;
   }
 }
 

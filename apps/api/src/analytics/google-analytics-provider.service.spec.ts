@@ -109,8 +109,22 @@ describe('GoogleAnalyticsProviderService', () => {
                   { value: '1' },
                 ],
               },
+              {
+                dimensionValues: [
+                  { value: '20260820' },
+                  { value: '/es-cl/blog/contenido-fuera-del-alcance' },
+                ],
+                metricValues: [
+                  { value: '100' },
+                  { value: '90' },
+                  { value: '120' },
+                  { value: '80' },
+                  { value: '900' },
+                  { value: '10' },
+                ],
+              },
             ],
-            rowCount: 1,
+            rowCount: 2,
           }),
           { status: 200 },
         ),
@@ -122,6 +136,7 @@ describe('GoogleAnalyticsProviderService', () => {
     const rows = await service.ga4Metrics({
       accessToken: 'access-token',
       propertyId: '123456789',
+      siteUrl: 'https://www.adecco.com/es-pe/',
       startDate: '2026-08-20',
       endDate: '2026-08-20',
     });
@@ -153,12 +168,16 @@ describe('GoogleAnalyticsProviderService', () => {
       filter: {
         fieldName: 'pagePath',
         stringFilter: {
-          matchType: 'CONTAINS',
-          value: '/blog',
+          matchType: 'BEGINS_WITH',
+          value: '/es-pe/blog',
           caseSensitive: false,
         },
       },
     });
+    const detailBody = JSON.parse(
+      fetchMock.mock.calls[1]?.[1]?.body as string,
+    ) as { dimensionFilter: unknown };
+    expect(detailBody.dimensionFilter).toEqual(totalsBody.dimensionFilter);
     for (const [, init] of fetchMock.mock.calls) {
       expect(typeof init?.body).toBe('string');
       const body = JSON.parse(init?.body as string) as {
@@ -204,6 +223,17 @@ describe('GoogleAnalyticsProviderService', () => {
                 ctr: 0.05,
                 position: 3,
               },
+              {
+                keys: [
+                  '2026-08-20',
+                  'https://www.adecco.com/es-cl/blog/contenido-fuera-del-alcance',
+                  'empleos chile',
+                ],
+                clicks: 80,
+                impressions: 1_600,
+                ctr: 0.05,
+                position: 2,
+              },
             ],
           }),
           { status: 200 },
@@ -225,6 +255,7 @@ describe('GoogleAnalyticsProviderService', () => {
       query: '__IHERE_TOTAL__',
       clicks: 12,
     });
+    expect(rows).toHaveLength(2);
     const totalsBody = JSON.parse(
       fetchMock.mock.calls[0]?.[1]?.body as string,
     ) as { dimensionFilterGroups: unknown[] };
@@ -234,10 +265,16 @@ describe('GoogleAnalyticsProviderService', () => {
           {
             dimension: 'page',
             operator: 'contains',
-            expression: '/blog',
+            expression: '/es-pe/blog',
           },
         ],
       },
     ]);
+    const detailBody = JSON.parse(
+      fetchMock.mock.calls[1]?.[1]?.body as string,
+    ) as { dimensionFilterGroups: unknown[] };
+    expect(detailBody.dimensionFilterGroups).toEqual(
+      totalsBody.dimensionFilterGroups,
+    );
   });
 });
