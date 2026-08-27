@@ -64,6 +64,8 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Generate Prisma client
+        env:
+          DATABASE_URL: postgresql://ihere:ihere_local_only@localhost:54329/ihere
         run: pnpm db:generate
 
       - name: Validate production Compose and Dockerfiles
