@@ -5,7 +5,6 @@ import Link from "next/link";
 import {
   AlertTriangle,
   CheckCircle2,
-  ClipboardCheck,
   LoaderCircle,
   Search,
   ShieldCheck,
@@ -21,11 +20,7 @@ import { ApiError } from "@/lib/api/api-client";
 import { NoteStatusBadge } from "./note-status-badge";
 import type { ApiNoteSummary } from "./types";
 
-export function ReviewQueueWorkspace({
-  mode,
-}: {
-  mode: "quality" | "approval";
-}) {
+export function ReviewQueueWorkspace() {
   const { apiFetch } = useAuth();
   const [notes, setNotes] = useState<ApiNoteSummary[]>([]);
   const [search, setSearch] = useState("");
@@ -51,15 +46,7 @@ export function ReviewQueueWorkspace({
   }, [apiFetch]);
 
   const visible = useMemo(() => {
-    const allowed =
-      mode === "approval"
-        ? new Set(["READY_FOR_REVIEW"])
-        : new Set([
-            "QA_QUEUED",
-            "QA_RUNNING",
-            "CHANGES_REQUESTED",
-            "READY_FOR_REVIEW",
-          ]);
+    const allowed = new Set(["READY_FOR_REVIEW"]);
     const normalized = search.trim().toLocaleLowerCase("es");
     return notes.filter(
       (note) =>
@@ -69,9 +56,8 @@ export function ReviewQueueWorkspace({
             value.toLocaleLowerCase("es").includes(normalized),
           )),
     );
-  }, [mode, notes, search]);
+  }, [notes, search]);
 
-  const Icon = mode === "quality" ? ClipboardCheck : ShieldCheck;
   const pendingLabel = `${visible.length} ${visible.length === 1 ? "pendiente" : "pendientes"}`;
 
   return (
@@ -79,16 +65,12 @@ export function ReviewQueueWorkspace({
       <section className="flex flex-col justify-between gap-3 rounded-xl border bg-card p-4 shadow-card sm:flex-row sm:items-center">
         <div>
           <div className="mb-1 flex items-center gap-2 text-xs font-semibold text-primary">
-            <Icon className="size-3.5" />
+            <ShieldCheck className="size-3.5" />
             Automatización de notas
           </div>
-          <h1 className="text-xl font-semibold sm:text-2xl">
-            {mode === "quality" ? "Control de calidad" : "Aprobaciones"}
-          </h1>
+          <h1 className="text-xl font-semibold sm:text-2xl">Aprobaciones</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {mode === "quality"
-              ? "Puntajes, bloqueos y evidencia por versión."
-              : "Versiones que superaron QA y requieren una decisión humana."}
+            Versiones que superaron QA y requieren una decisión humana.
           </p>
         </div>
         <Badge variant="outline" className="bg-card">
@@ -128,10 +110,7 @@ export function ReviewQueueWorkspace({
             const blockers = Array.isArray(qa?.criticalBlockers)
               ? qa.criticalBlockers.length
               : 0;
-            const destination =
-              mode === "quality"
-                ? `/automatizacion/notas/${note.id}?from=quality#qa-evidence`
-                : `/automatizacion/notas/${note.id}?from=approval`;
+            const destination = `/automatizacion/notas/${note.id}?from=approval`;
             return (
               <Card key={note.id} className="shadow-card">
                 <CardContent className="p-4">
@@ -168,20 +147,10 @@ export function ReviewQueueWorkspace({
                     </div>
                   </div>
                   <Progress className="mt-3" value={qa?.overallScore ?? 0} />
-                  <Button
-                    asChild
-                    className="mt-4 w-full"
-                    variant={mode === "approval" ? "default" : "outline"}
-                  >
+                  <Button asChild className="mt-4 w-full">
                     <Link href={destination}>
-                      {mode === "approval" ? (
-                        <CheckCircle2 />
-                      ) : (
-                        <ClipboardCheck />
-                      )}
-                      {mode === "approval"
-                        ? "Revisar y decidir"
-                        : "Abrir evidencia de QA"}
+                      <CheckCircle2 />
+                      Revisar y decidir
                     </Link>
                   </Button>
                 </CardContent>

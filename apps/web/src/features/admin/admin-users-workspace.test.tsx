@@ -174,7 +174,6 @@ describe("AdminUsersWorkspace", () => {
             "automation.clients",
             "automation.titles",
             "automation.notes",
-            "automation.quality",
             "automation.approvals",
             "automation.exports",
             "automation.learning",

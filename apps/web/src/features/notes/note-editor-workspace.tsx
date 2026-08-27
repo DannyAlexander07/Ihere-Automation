@@ -100,7 +100,7 @@ export function NoteEditorWorkspace({
   origin,
 }: {
   noteId: string;
-  origin?: "quality" | "approval";
+  origin?: "approval";
 }) {
   const { apiFetch, user } = useAuth();
   const [note, setNote] = useState<ApiNoteDetail | null>(null);
@@ -163,17 +163,6 @@ export function NoteEditorWorkspace({
       cancelled = true;
     };
   }, [apiFetch, noteId]);
-
-  useEffect(() => {
-    if (!note || origin !== "quality") return;
-    const frame = window.requestAnimationFrame(() => {
-      const target = document.getElementById("qa-evidence");
-      if (typeof target?.scrollIntoView === "function") {
-        target.scrollIntoView({ behavior: "smooth", block: "start" });
-      }
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, [note, origin, selectedVersionNumber]);
 
   const qaActive =
     note?.status === "QA_QUEUED" || note?.status === "QA_RUNNING";
@@ -441,17 +430,12 @@ export function NoteEditorWorkspace({
 
   const editorialBrief = readEditorialBrief(note.briefSnapshot);
   const backDestination =
-    origin === "quality"
+    origin === "approval"
       ? {
-          href: "/automatizacion/calidad",
-          label: "Volver a control de calidad",
+          href: "/automatizacion/aprobaciones",
+          label: "Volver a aprobaciones",
         }
-      : origin === "approval"
-        ? {
-            href: "/automatizacion/aprobaciones",
-            label: "Volver a aprobaciones",
-          }
-        : { href: "/automatizacion/notas", label: "Volver a notas" };
+      : { href: "/automatizacion/notas", label: "Volver a notas" };
 
   return (
     <div className="space-y-4">
@@ -1112,10 +1096,7 @@ export function NoteEditorWorkspace({
         </section>
 
         <aside className="space-y-3">
-          <Card
-            id="qa-evidence"
-            className="scroll-mt-24 target:ring-2 target:ring-primary/40 target:ring-offset-2"
-          >
+          <Card>
             <CardHeader>
               <CardTitle className="text-sm">
                 Control de calidad · v{selectedVersion?.version}

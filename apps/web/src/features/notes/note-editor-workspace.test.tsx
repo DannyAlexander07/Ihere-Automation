@@ -3,7 +3,6 @@ import {
   fireEvent,
   render,
   screen,
-  within,
   waitFor,
 } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -310,23 +309,6 @@ describe("NoteEditorWorkspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "Editar" }));
 
     expect(screen.getByDisplayValue("Título vigente corregido")).toBeEnabled();
-  });
-
-  it("abre la evidencia de QA con retorno a la cola de calidad", async () => {
-    apiFetchMock.mockResolvedValue(note("READY_FOR_REVIEW"));
-
-    render(<NoteEditorWorkspace noteId="note-1" origin="quality" />);
-
-    expect(
-      await screen.findByRole("link", {
-        name: "Volver a control de calidad",
-      }),
-    ).toHaveAttribute("href", "/automatizacion/calidad");
-    const evidence = document.getElementById("qa-evidence");
-    expect(evidence).toBeInTheDocument();
-    expect(
-      within(evidence!).getByText(/Control de calidad · v\d+/i),
-    ).toBeVisible();
   });
 
   it("permite crear una versión corregida después del QA sin reutilizar esa evaluación", async () => {

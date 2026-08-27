@@ -12,6 +12,6 @@ export default async function NoteEditorPage({
 }) {
   const { id } = await params;
   const { from } = await searchParams;
-  const origin = from === "quality" || from === "approval" ? from : undefined;
+  const origin = from === "approval" ? from : undefined;
   return <NoteEditorWorkspace noteId={id} origin={origin} />;
 }

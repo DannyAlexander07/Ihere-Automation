@@ -90,21 +90,9 @@ const automationAccessProfiles = [
       'notes.read',
       'notes.create',
       'notes.edit',
-      'ai.read',
-      'ai.generate',
-    ],
-  },
-  {
-    code: 'automation.quality',
-    name: 'Control de calidad',
-    description: 'Ejecuta y revisa controles de calidad editorial.',
-    permissions: [
-      'clients.read',
-      'titles.read',
-      'titles.evaluate',
-      'notes.read',
       'notes.qa',
       'ai.read',
+      'ai.generate',
     ],
   },
   {
@@ -171,12 +159,6 @@ const automationReadProfiles = [
     name: 'Notas · Solo ver',
     description: 'Consulta notas, versiones y ejecuciones autorizadas.',
     permissions: ['clients.read', 'notes.read', 'ai.read'],
-  },
-  {
-    code: 'automation.quality.reader',
-    name: 'Control de calidad · Solo ver',
-    description: 'Consulta títulos, notas y resultados de calidad.',
-    permissions: ['clients.read', 'titles.read', 'notes.read', 'ai.read'],
   },
   {
     code: 'automation.approvals.reader',

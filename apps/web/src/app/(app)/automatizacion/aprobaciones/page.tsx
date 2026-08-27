@@ -4,5 +4,5 @@ import { ReviewQueueWorkspace } from "@/features/notes/review-queue-workspace";
 export const metadata: Metadata = { title: "Aprobaciones" };
 
 export default function ApprovalsPage() {
-  return <ReviewQueueWorkspace mode="approval" />;
+  return <ReviewQueueWorkspace />;
 }

@@ -80,7 +80,6 @@ const preferredAccessProfileOrder = [
   "automation.clients",
   "automation.titles",
   "automation.notes",
-  "automation.quality",
   "automation.approvals",
   "automation.exports",
   "automation.learning",
@@ -91,7 +90,6 @@ const accessProfileLabels: Record<string, string> = {
   "automation.clients": "Clientes",
   "automation.titles": "Propuestas de títulos",
   "automation.notes": "Notas",
-  "automation.quality": "Control de calidad",
   "automation.approvals": "Aprobaciones",
   "automation.exports": "Exportaciones",
   "automation.learning": "Aprendizaje editorial",
@@ -1214,8 +1212,7 @@ function AccessMatrixEditor({
         <div className="divide-y">
           {draft.map((access, index) => {
             const profile = profiles.find(
-              (candidate) =>
-                candidate.submoduleCode === access.submoduleCode,
+              (candidate) => candidate.submoduleCode === access.submoduleCode,
             );
             const roleCode =
               access.level === "READ"
@@ -1251,9 +1248,7 @@ function AccessMatrixEditor({
                       </p>
                     </div>
                     <div className="space-y-1.5">
-                      <Label
-                        htmlFor={`access-level-${access.submoduleCode}`}
-                      >
+                      <Label htmlFor={`access-level-${access.submoduleCode}`}>
                         Nivel de acceso
                       </Label>
                       <select
@@ -1298,8 +1293,8 @@ function AccessMatrixEditor({
                       </div>
                       {tenantOnlyEditor ? (
                         <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                          Este nivel contiene acciones organizacionales y por eso
-                          aplica a todos los clientes. Las eliminaciones
+                          Este nivel contiene acciones organizacionales y por
+                          eso aplica a todos los clientes. Las eliminaciones
                           sensibles continúan reservadas al administrador.
                         </p>
                       ) : (
@@ -1358,7 +1353,8 @@ function AccessMatrixEditor({
                                                         client.id,
                                                       ]
                                                     : item.clientIds.filter(
-                                                        (id) => id !== client.id,
+                                                        (id) =>
+                                                          id !== client.id,
                                                       ),
                                                 }
                                               : item,
@@ -1455,6 +1451,7 @@ function accessProfilesFromRoles(roles: AdminRole[]): AccessProfile[] {
   return roles
     .filter(
       (role) =>
+        role.code !== "automation.quality" &&
         !role.code.endsWith(".reader") &&
         role.code.split(".").length === 2 &&
         roleByCode.has(`${role.code}.reader`),

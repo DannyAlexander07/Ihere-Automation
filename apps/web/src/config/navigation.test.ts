@@ -54,7 +54,6 @@ describe("navigation", () => {
     ]);
     expect(groups[0].items.map((item) => item.label)).toEqual([
       "Propuestas de títulos",
-      "Control de calidad",
       "Aprobaciones",
     ]);
   });
@@ -69,7 +68,6 @@ describe("navigation", () => {
     ]);
     expect(groups[0].items.map((item) => item.label)).toEqual([
       "Notas",
-      "Control de calidad",
       "Aprobaciones",
       "Exportaciones",
       "Resumen ejecutivo",

@@ -2,7 +2,6 @@ import {
   BookOpenCheck,
   BrainCircuit,
   Building2,
-  ClipboardCheck,
   FileDown,
   FileText,
   Gauge,
@@ -60,12 +59,6 @@ export const navigationGroups: NavigationGroup[] = [
         href: "/automatizacion/notas",
         icon: FileText,
         permissionGroups: [["notes.read"]],
-      },
-      {
-        label: "Control de calidad",
-        href: "/automatizacion/calidad",
-        icon: ClipboardCheck,
-        permissionGroups: [["titles.read"], ["notes.read"]],
       },
       {
         label: "Aprobaciones",
