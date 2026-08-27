@@ -3,7 +3,15 @@ import { NoteEditorWorkspace } from "@/features/notes/note-editor-workspace";
 
 export const metadata: Metadata = { title: "Editor de nota" };
 
-export default async function NoteEditorPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function NoteEditorPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ from?: string | string[] }>;
+}) {
   const { id } = await params;
-  return <NoteEditorWorkspace noteId={id} />;
+  const { from } = await searchParams;
+  const origin = from === "quality" || from === "approval" ? from : undefined;
+  return <NoteEditorWorkspace noteId={id} origin={origin} />;
 }

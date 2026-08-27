@@ -1,4 +1,11 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  within,
+  waitFor,
+} from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AuthUser } from "@/features/auth/auth-provider";
 import { NoteEditorWorkspace } from "./note-editor-workspace";
@@ -208,7 +215,9 @@ describe("NoteEditorWorkspace", () => {
           model: "editorial-model",
           costMicros: 1_000,
           agentResults: [],
-          noteVersions: [{ id: "version-1", noteId: "note-1", version: 1, title: "Título" }],
+          noteVersions: [
+            { id: "version-1", noteId: "note-1", version: 1, title: "Título" },
+          ],
         });
       }
       return Promise.resolve(blankInitialNote());
@@ -228,13 +237,10 @@ describe("NoteEditorWorkspace", () => {
       await props.onGenerate(vi.fn());
     });
 
-    expect(apiFetchMock).toHaveBeenCalledWith(
-      "ai/generations/notes/note-1",
-      {
-        method: "POST",
-        body: JSON.stringify({ expectedVersion: 1 }),
-      },
-    );
+    expect(apiFetchMock).toHaveBeenCalledWith("ai/generations/notes/note-1", {
+      method: "POST",
+      body: JSON.stringify({ expectedVersion: 1 }),
+    });
   });
 
   it("muestra progreso al recargar una nota inicial que ya se está generando", async () => {
@@ -242,13 +248,9 @@ describe("NoteEditorWorkspace", () => {
 
     render(<NoteEditorWorkspace noteId="note-1" />);
 
-    expect(
-      await screen.findByText("Borrador en preparación"),
-    ).toBeVisible();
+    expect(await screen.findByText("Borrador en preparación")).toBeVisible();
     expect(screen.getByText(/se actualizará automáticamente/i)).toBeVisible();
-    expect(
-      screen.queryByDisplayValue("Título de propuesta"),
-    ).toBeNull();
+    expect(screen.queryByDisplayValue("Título de propuesta")).toBeNull();
   });
 
   it("selecciona una versión histórica, compara cambios y muestra su QA real", async () => {
@@ -310,6 +312,23 @@ describe("NoteEditorWorkspace", () => {
     expect(screen.getByDisplayValue("Título vigente corregido")).toBeEnabled();
   });
 
+  it("abre la evidencia de QA con retorno a la cola de calidad", async () => {
+    apiFetchMock.mockResolvedValue(note("READY_FOR_REVIEW"));
+
+    render(<NoteEditorWorkspace noteId="note-1" origin="quality" />);
+
+    expect(
+      await screen.findByRole("link", {
+        name: "Volver a control de calidad",
+      }),
+    ).toHaveAttribute("href", "/automatizacion/calidad");
+    const evidence = document.getElementById("qa-evidence");
+    expect(evidence).toBeInTheDocument();
+    expect(
+      within(evidence!).getByText(/Control de calidad · v\d+/i),
+    ).toBeVisible();
+  });
+
   it("permite crear una versión corregida después del QA sin reutilizar esa evaluación", async () => {
     apiFetchMock.mockResolvedValue(note("READY_FOR_REVIEW"));
 
@@ -324,9 +343,7 @@ describe("NoteEditorWorkspace", () => {
     expect(
       screen.getByText("Puedes revisar y editar antes de compartir"),
     ).toBeVisible();
-    expect(
-      screen.queryByRole("button", { name: "Enviar a QA" }),
-    ).toBeNull();
+    expect(screen.queryByRole("button", { name: "Enviar a QA" })).toBeNull();
   });
 
   it("vuelve a borrador y habilita QA después de guardar la corrección revisable", async () => {
@@ -339,16 +356,18 @@ describe("NoteEditorWorkspace", () => {
 
     fireEvent.change(
       await screen.findByLabelText("Motivo de esta nueva versión"),
-      { target: { value: "Ajustar el contenido después de la revisión interna." } },
+      {
+        target: {
+          value: "Ajustar el contenido después de la revisión interna.",
+        },
+      },
     );
     fireEvent.click(
       screen.getByRole("button", { name: "Guardar nueva versión" }),
     );
 
     await waitFor(() =>
-      expect(
-        screen.getByRole("button", { name: "Enviar a QA" }),
-      ).toBeEnabled(),
+      expect(screen.getByRole("button", { name: "Enviar a QA" })).toBeEnabled(),
     );
     expect(apiFetchMock).toHaveBeenCalledWith(
       "notes/note-1",

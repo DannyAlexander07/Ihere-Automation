@@ -95,7 +95,13 @@ type EditorForm = {
 
 type Decision = "APPROVE" | "REQUEST_CHANGES" | "REJECT";
 
-export function NoteEditorWorkspace({ noteId }: { noteId: string }) {
+export function NoteEditorWorkspace({
+  noteId,
+  origin,
+}: {
+  noteId: string;
+  origin?: "quality" | "approval";
+}) {
   const { apiFetch, user } = useAuth();
   const [note, setNote] = useState<ApiNoteDetail | null>(null);
   const [form, setForm] = useState<EditorForm | null>(null);
@@ -157,6 +163,17 @@ export function NoteEditorWorkspace({ noteId }: { noteId: string }) {
       cancelled = true;
     };
   }, [apiFetch, noteId]);
+
+  useEffect(() => {
+    if (!note || origin !== "quality") return;
+    const frame = window.requestAnimationFrame(() => {
+      const target = document.getElementById("qa-evidence");
+      if (typeof target?.scrollIntoView === "function") {
+        target.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [note, origin, selectedVersionNumber]);
 
   const qaActive =
     note?.status === "QA_QUEUED" || note?.status === "QA_RUNNING";
@@ -415,19 +432,35 @@ export function NoteEditorWorkspace({ noteId }: { noteId: string }) {
     );
 
   if (note.status === "GENERATING" && emptyInitialVersion) {
-    return <NoteGenerationWaiting title={currentVersion?.title ?? note.titleProposal.title} />;
+    return (
+      <NoteGenerationWaiting
+        title={currentVersion?.title ?? note.titleProposal.title}
+      />
+    );
   }
 
   const editorialBrief = readEditorialBrief(note.briefSnapshot);
+  const backDestination =
+    origin === "quality"
+      ? {
+          href: "/automatizacion/calidad",
+          label: "Volver a control de calidad",
+        }
+      : origin === "approval"
+        ? {
+            href: "/automatizacion/aprobaciones",
+            label: "Volver a aprobaciones",
+          }
+        : { href: "/automatizacion/notas", label: "Volver a notas" };
 
   return (
     <div className="space-y-4">
       <section className="flex flex-col justify-between gap-3 rounded-xl border bg-card p-4 shadow-card lg:flex-row lg:items-center">
         <div className="min-w-0">
           <Button asChild variant="ghost" size="sm" className="-ml-2 mb-1">
-            <Link href="/automatizacion/notas">
+            <Link href={backDestination.href}>
               <ArrowLeft />
-              Volver a notas
+              {backDestination.label}
             </Link>
           </Button>
           <div className="flex flex-wrap items-center gap-2">
@@ -473,7 +506,7 @@ export function NoteEditorWorkspace({ noteId }: { noteId: string }) {
                 ? "Crear corrección"
                 : note.status === "READY_FOR_REVIEW"
                   ? "Guardar nueva versión"
-                : "Guardar versión"}
+                  : "Guardar versión"}
             </Button>
           ) : null}
           {workflowEditable && viewingCurrent ? (
@@ -746,15 +779,32 @@ export function NoteEditorWorkspace({ noteId }: { noteId: string }) {
           <Card className="border-primary/20 bg-primary/[0.025]">
             <CardContent className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <p className="text-sm font-semibold">Revisión interna antes del cliente</p>
-                <p className="text-xs text-muted-foreground">Comprueba cómo se leerá la nota o vuelve al editor para ajustar contenido y metadatos.</p>
+                <p className="text-sm font-semibold">
+                  Revisión interna antes del cliente
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Comprueba cómo se leerá la nota o vuelve al editor para
+                  ajustar contenido y metadatos.
+                </p>
               </div>
               <div className="flex rounded-lg border bg-background p-1">
-                <Button type="button" size="sm" variant={editorMode === "preview" ? "secondary" : "ghost"} onClick={() => setEditorMode("preview")}>
-                  <Eye />Vista previa
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={editorMode === "preview" ? "secondary" : "ghost"}
+                  onClick={() => setEditorMode("preview")}
+                >
+                  <Eye />
+                  Vista previa
                 </Button>
-                <Button type="button" size="sm" variant={editorMode === "edit" ? "secondary" : "ghost"} onClick={() => setEditorMode("edit")}>
-                  <Pencil />Editar
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={editorMode === "edit" ? "secondary" : "ghost"}
+                  onClick={() => setEditorMode("edit")}
+                >
+                  <Pencil />
+                  Editar
                 </Button>
               </div>
             </CardContent>
@@ -764,8 +814,15 @@ export function NoteEditorWorkspace({ noteId }: { noteId: string }) {
             key={`${selectedVersion?.version ?? note.currentVersion}:${note.imageProposals?.find((item) => item.version === selectedVersion?.version)?.status ?? "none"}:${note.imageProposals?.find((item) => item.version === selectedVersion?.version)?.concept ?? ""}`}
             noteId={note.id}
             version={selectedVersion?.version ?? note.currentVersion}
-            proposal={note.imageProposals?.find((item) => item.version === selectedVersion?.version) ?? null}
-            editable={viewingCurrent && hasClientPermission(user, "notes.edit", note.clientId)}
+            proposal={
+              note.imageProposals?.find(
+                (item) => item.version === selectedVersion?.version,
+              ) ?? null
+            }
+            editable={
+              viewingCurrent &&
+              hasClientPermission(user, "notes.edit", note.clientId)
+            }
             canReview={viewingCurrent && canReview}
             canApprove={viewingCurrent && canApprove}
             onSaved={async (message) => {
@@ -779,269 +836,286 @@ export function NoteEditorWorkspace({ noteId }: { noteId: string }) {
             <NoteArticlePreview form={visibleForm} />
           ) : (
             <>
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">
-                Metadatos y atribución
-              </CardTitle>
-              <CardDescription>
-                Los cambios se guardan como una versión inmutable nueva.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="grid gap-3 sm:grid-cols-2">
-              <EditorInput
-                label="Título visible"
-                value={visibleForm.title}
-                onChange={(value) => updateForm(setForm, "title", value)}
-                disabled={!canSave}
-                wide
-              />
-              <EditorInput
-                label="Meta title"
-                value={visibleForm.metaTitle}
-                onChange={(value) => updateForm(setForm, "metaTitle", value)}
-                disabled={!canSave}
-              />
-              <EditorInput
-                label="Slug"
-                value={visibleForm.slug}
-                onChange={(value) => updateForm(setForm, "slug", value)}
-                disabled={!canSave}
-              />
-              <EditorArea
-                label="Meta description"
-                value={visibleForm.metaDescription}
-                onChange={(value) =>
-                  updateForm(setForm, "metaDescription", value)
-                }
-                disabled={!canSave}
-                wide
-              />
-              <EditorArea
-                label="Extracto"
-                value={visibleForm.excerpt}
-                onChange={(value) => updateForm(setForm, "excerpt", value)}
-                disabled={!canSave}
-                wide
-              />
-              <EditorInput
-                label="Autor o especialista"
-                value={visibleForm.authorName}
-                onChange={(value) => updateForm(setForm, "authorName", value)}
-                disabled={!canSave}
-              />
-              <EditorInput
-                label="Cargo o especialidad"
-                value={visibleForm.authorRole}
-                onChange={(value) => updateForm(setForm, "authorRole", value)}
-                disabled={!canSave}
-              />
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-start justify-between gap-3">
-              <div>
-                <CardTitle className="text-base">
-                  Contenido estructurado
-                </CardTitle>
-                <CardDescription>
-                  Encabezados, párrafos, listas, citas y destacados seguros.
-                </CardDescription>
-              </div>
-              {canSave ? (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() =>
-                    setForm((current) =>
-                      current
-                        ? {
-                            ...current,
-                            blocks: [...current.blocks, newBlock("paragraph")],
-                          }
-                        : current,
-                    )
-                  }
-                >
-                  <Plus />
-                  Bloque
-                </Button>
-              ) : null}
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {visibleForm.blocks.length ? (
-                visibleForm.blocks.map((block, index) => (
-                  <BlockEditor
-                    key={block.id}
-                    block={block}
-                    index={index}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">
+                    Metadatos y atribución
+                  </CardTitle>
+                  <CardDescription>
+                    Los cambios se guardan como una versión inmutable nueva.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="grid gap-3 sm:grid-cols-2">
+                  <EditorInput
+                    label="Título visible"
+                    value={visibleForm.title}
+                    onChange={(value) => updateForm(setForm, "title", value)}
                     disabled={!canSave}
-                    onChange={(next) =>
-                      setForm((current) =>
-                        current
-                          ? {
-                              ...current,
-                              blocks: current.blocks.map((item) =>
-                                item.id === block.id ? next : item,
-                              ),
-                            }
-                          : current,
-                      )
-                    }
-                    onRemove={() =>
-                      setForm((current) =>
-                        current
-                          ? {
-                              ...current,
-                              blocks: current.blocks.filter(
-                                (item) => item.id !== block.id,
-                              ),
-                            }
-                          : current,
-                      )
-                    }
+                    wide
                   />
-                ))
-              ) : (
-                <div className="rounded-xl border border-dashed p-6 text-center">
-                  <FileCheck2 className="mx-auto size-6 text-primary" />
-                  <p className="mt-2 text-sm font-semibold">
-                    La nota todavía no tiene contenido
-                  </p>
+                  <EditorInput
+                    label="Meta title"
+                    value={visibleForm.metaTitle}
+                    onChange={(value) =>
+                      updateForm(setForm, "metaTitle", value)
+                    }
+                    disabled={!canSave}
+                  />
+                  <EditorInput
+                    label="Slug"
+                    value={visibleForm.slug}
+                    onChange={(value) => updateForm(setForm, "slug", value)}
+                    disabled={!canSave}
+                  />
+                  <EditorArea
+                    label="Meta description"
+                    value={visibleForm.metaDescription}
+                    onChange={(value) =>
+                      updateForm(setForm, "metaDescription", value)
+                    }
+                    disabled={!canSave}
+                    wide
+                  />
+                  <EditorArea
+                    label="Extracto"
+                    value={visibleForm.excerpt}
+                    onChange={(value) => updateForm(setForm, "excerpt", value)}
+                    disabled={!canSave}
+                    wide
+                  />
+                  <EditorInput
+                    label="Autor o especialista"
+                    value={visibleForm.authorName}
+                    onChange={(value) =>
+                      updateForm(setForm, "authorName", value)
+                    }
+                    disabled={!canSave}
+                  />
+                  <EditorInput
+                    label="Cargo o especialidad"
+                    value={visibleForm.authorRole}
+                    onChange={(value) =>
+                      updateForm(setForm, "authorRole", value)
+                    }
+                    disabled={!canSave}
+                  />
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-start justify-between gap-3">
+                  <div>
+                    <CardTitle className="text-base">
+                      Contenido estructurado
+                    </CardTitle>
+                    <CardDescription>
+                      Encabezados, párrafos, listas, citas y destacados seguros.
+                    </CardDescription>
+                  </div>
                   {canSave ? (
                     <Button
-                      className="mt-3"
                       variant="outline"
+                      size="sm"
                       onClick={() =>
                         setForm((current) =>
                           current
-                            ? { ...current, blocks: [newBlock("paragraph")] }
+                            ? {
+                                ...current,
+                                blocks: [
+                                  ...current.blocks,
+                                  newBlock("paragraph"),
+                                ],
+                              }
                             : current,
                         )
                       }
                     >
-                      <ListPlus />
-                      Agregar primer bloque
+                      <Plus />
+                      Bloque
                     </Button>
                   ) : null}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {visibleForm.blocks.length ? (
+                    visibleForm.blocks.map((block, index) => (
+                      <BlockEditor
+                        key={block.id}
+                        block={block}
+                        index={index}
+                        disabled={!canSave}
+                        onChange={(next) =>
+                          setForm((current) =>
+                            current
+                              ? {
+                                  ...current,
+                                  blocks: current.blocks.map((item) =>
+                                    item.id === block.id ? next : item,
+                                  ),
+                                }
+                              : current,
+                          )
+                        }
+                        onRemove={() =>
+                          setForm((current) =>
+                            current
+                              ? {
+                                  ...current,
+                                  blocks: current.blocks.filter(
+                                    (item) => item.id !== block.id,
+                                  ),
+                                }
+                              : current,
+                          )
+                        }
+                      />
+                    ))
+                  ) : (
+                    <div className="rounded-xl border border-dashed p-6 text-center">
+                      <FileCheck2 className="mx-auto size-6 text-primary" />
+                      <p className="mt-2 text-sm font-semibold">
+                        La nota todavía no tiene contenido
+                      </p>
+                      {canSave ? (
+                        <Button
+                          className="mt-3"
+                          variant="outline"
+                          onClick={() =>
+                            setForm((current) =>
+                              current
+                                ? {
+                                    ...current,
+                                    blocks: [newBlock("paragraph")],
+                                  }
+                                : current,
+                            )
+                          }
+                        >
+                          <ListPlus />
+                          Agregar primer bloque
+                        </Button>
+                      ) : null}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-start justify-between gap-3">
-              <div>
-                <CardTitle className="text-base">Fuentes y enlaces</CardTitle>
-                <CardDescription>
-                  Entidad, prioridad, URL y fechas verificables.
-                </CardDescription>
-              </div>
-              {canSave ? (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() =>
-                    setForm((current) =>
-                      current
-                        ? {
-                            ...current,
-                            sources: [...current.sources, newSource()],
-                          }
-                        : current,
-                    )
-                  }
-                >
-                  <Plus />
-                  Fuente
-                </Button>
-              ) : null}
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {visibleForm.sources.map((source, index) => (
-                <SourceEditor
-                  key={source.id}
-                  source={source}
-                  index={index}
-                  disabled={!canSave}
-                  onChange={(next) =>
-                    setForm((current) =>
-                      current
-                        ? {
-                            ...current,
-                            sources: current.sources.map((item) =>
-                              item.id === source.id ? next : item,
-                            ),
-                          }
-                        : current,
-                    )
-                  }
-                  onRemove={() =>
-                    setForm((current) =>
-                      current
-                        ? {
-                            ...current,
-                            sources: current.sources.filter(
-                              (item) => item.id !== source.id,
-                            ),
-                          }
-                        : current,
-                    )
-                  }
-                />
-              ))}
-              <EditorArea
-                label="Enlaces internos, uno por línea"
-                value={visibleForm.internalLinks}
-                onChange={(value) =>
-                  updateForm(setForm, "internalLinks", value)
-                }
-                disabled={!canSave}
-              />
-            </CardContent>
-          </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-start justify-between gap-3">
+                  <div>
+                    <CardTitle className="text-base">
+                      Fuentes y enlaces
+                    </CardTitle>
+                    <CardDescription>
+                      Entidad, prioridad, URL y fechas verificables.
+                    </CardDescription>
+                  </div>
+                  {canSave ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        setForm((current) =>
+                          current
+                            ? {
+                                ...current,
+                                sources: [...current.sources, newSource()],
+                              }
+                            : current,
+                        )
+                      }
+                    >
+                      <Plus />
+                      Fuente
+                    </Button>
+                  ) : null}
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {visibleForm.sources.map((source, index) => (
+                    <SourceEditor
+                      key={source.id}
+                      source={source}
+                      index={index}
+                      disabled={!canSave}
+                      onChange={(next) =>
+                        setForm((current) =>
+                          current
+                            ? {
+                                ...current,
+                                sources: current.sources.map((item) =>
+                                  item.id === source.id ? next : item,
+                                ),
+                              }
+                            : current,
+                        )
+                      }
+                      onRemove={() =>
+                        setForm((current) =>
+                          current
+                            ? {
+                                ...current,
+                                sources: current.sources.filter(
+                                  (item) => item.id !== source.id,
+                                ),
+                              }
+                            : current,
+                        )
+                      }
+                    />
+                  ))}
+                  <EditorArea
+                    label="Enlaces internos, uno por línea"
+                    value={visibleForm.internalLinks}
+                    onChange={(value) =>
+                      updateForm(setForm, "internalLinks", value)
+                    }
+                    disabled={!canSave}
+                  />
+                </CardContent>
+              </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">
-                Orientación a la acción
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="grid gap-3 sm:grid-cols-2">
-              <EditorArea
-                label="CTA"
-                value={visibleForm.ctaText}
-                onChange={(value) => updateForm(setForm, "ctaText", value)}
-                disabled={!canSave}
-                wide
-              />
-              <EditorInput
-                label="URL del CTA"
-                value={visibleForm.ctaUrl}
-                onChange={(value) => updateForm(setForm, "ctaUrl", value)}
-                disabled={!canSave}
-                wide
-              />
-              <EditorArea
-                label={
-                  viewingCurrent
-                    ? "Motivo de esta nueva versión"
-                    : "Motivo registrado"
-                }
-                value={visibleForm.reason}
-                onChange={(value) => updateForm(setForm, "reason", value)}
-                disabled={!canSave}
-                wide
-              />
-            </CardContent>
-          </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">
+                    Orientación a la acción
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="grid gap-3 sm:grid-cols-2">
+                  <EditorArea
+                    label="CTA"
+                    value={visibleForm.ctaText}
+                    onChange={(value) => updateForm(setForm, "ctaText", value)}
+                    disabled={!canSave}
+                    wide
+                  />
+                  <EditorInput
+                    label="URL del CTA"
+                    value={visibleForm.ctaUrl}
+                    onChange={(value) => updateForm(setForm, "ctaUrl", value)}
+                    disabled={!canSave}
+                    wide
+                  />
+                  <EditorArea
+                    label={
+                      viewingCurrent
+                        ? "Motivo de esta nueva versión"
+                        : "Motivo registrado"
+                    }
+                    value={visibleForm.reason}
+                    onChange={(value) => updateForm(setForm, "reason", value)}
+                    disabled={!canSave}
+                    wide
+                  />
+                </CardContent>
+              </Card>
             </>
           )}
         </section>
 
         <aside className="space-y-3">
-          <Card>
+          <Card
+            id="qa-evidence"
+            className="scroll-mt-24 target:ring-2 target:ring-primary/40 target:ring-offset-2"
+          >
             <CardHeader>
               <CardTitle className="text-sm">
                 Control de calidad · v{selectedVersion?.version}
@@ -1243,11 +1317,11 @@ function isEmptyInitialVersion(
 ) {
   return Boolean(
     note &&
-      note.currentVersion === 1 &&
-      version?.version === 1 &&
-      version.wordCount === 0 &&
-      version.sources.length === 0 &&
-      version.content.blocks.length === 0,
+    note.currentVersion === 1 &&
+    version?.version === 1 &&
+    version.wordCount === 0 &&
+    version.sources.length === 0 &&
+    version.content.blocks.length === 0,
   );
 }
 
@@ -1263,13 +1337,30 @@ function NoteArticlePreview({ form }: { form: EditorForm }) {
     <article className="overflow-hidden rounded-2xl border bg-white shadow-card">
       <header className="border-b bg-[radial-gradient(circle_at_90%_0%,rgba(22,142,234,.12),transparent_35%),#fff] px-5 py-7 sm:px-8 sm:py-10">
         <Badge variant="secondary">Vista previa interna</Badge>
-        <h2 className="mt-4 text-2xl font-bold leading-tight sm:text-3xl">{form.title || "Nota sin título"}</h2>
-        {form.excerpt ? <p className="mt-3 max-w-3xl text-base leading-7 text-muted-foreground">{form.excerpt}</p> : null}
-        {form.authorName ? <p className="mt-4 text-sm font-semibold">Por {form.authorName}{form.authorRole ? ` · ${form.authorRole}` : ""}</p> : null}
+        <h2 className="mt-4 text-2xl font-bold leading-tight sm:text-3xl">
+          {form.title || "Nota sin título"}
+        </h2>
+        {form.excerpt ? (
+          <p className="mt-3 max-w-3xl text-base leading-7 text-muted-foreground">
+            {form.excerpt}
+          </p>
+        ) : null}
+        {form.authorName ? (
+          <p className="mt-4 text-sm font-semibold">
+            Por {form.authorName}
+            {form.authorRole ? ` · ${form.authorRole}` : ""}
+          </p>
+        ) : null}
       </header>
       <div className="mx-auto min-w-0 max-w-3xl space-y-5 px-5 py-7 text-[15px] leading-7 [overflow-wrap:anywhere] sm:px-8 sm:py-10">
-        {form.blocks.length ? form.blocks.map((block) => <PreviewBlock key={block.id} block={block} />) : (
-          <p className="rounded-xl border border-dashed p-5 text-center text-muted-foreground">La nota aún no tiene contenido para previsualizar.</p>
+        {form.blocks.length ? (
+          form.blocks.map((block) => (
+            <PreviewBlock key={block.id} block={block} />
+          ))
+        ) : (
+          <p className="rounded-xl border border-dashed p-5 text-center text-muted-foreground">
+            La nota aún no tiene contenido para previsualizar.
+          </p>
         )}
         {form.ctaText ? (
           <aside className="rounded-2xl border border-primary/20 bg-primary/5 p-5">
@@ -1294,7 +1385,10 @@ function NoteArticlePreview({ form }: { form: EditorForm }) {
               {form.sources.map((source) => {
                 const sourceUrl = cleanExternalUrl(source.url);
                 return (
-                  <li key={source.id} className="break-words [overflow-wrap:anywhere]">
+                  <li
+                    key={source.id}
+                    className="break-words [overflow-wrap:anywhere]"
+                  >
                     {sourceUrl ? (
                       <a
                         className="font-medium text-primary underline underline-offset-4"
@@ -1305,7 +1399,9 @@ function NoteArticlePreview({ form }: { form: EditorForm }) {
                         {source.entity}: {source.title}
                       </a>
                     ) : (
-                      <>{source.entity}: {source.title}</>
+                      <>
+                        {source.entity}: {source.title}
+                      </>
                     )}
                   </li>
                 );
@@ -1320,16 +1416,45 @@ function NoteArticlePreview({ form }: { form: EditorForm }) {
 
 function PreviewBlock({ block }: { block: NoteBlock }) {
   if (block.type === "heading") {
-    const className = block.level === 2 ? "text-xl sm:text-2xl" : "text-lg sm:text-xl";
-    return <h3 className={`${className} break-words pt-2 font-bold leading-tight [overflow-wrap:anywhere]`}>{renderInlineLinks(block.text)}</h3>;
+    const className =
+      block.level === 2 ? "text-xl sm:text-2xl" : "text-lg sm:text-xl";
+    return (
+      <h3
+        className={`${className} break-words pt-2 font-bold leading-tight [overflow-wrap:anywhere]`}
+      >
+        {renderInlineLinks(block.text)}
+      </h3>
+    );
   }
   if (block.type === "bullet_list" || block.type === "ordered_list") {
     const ListTag = block.type === "ordered_list" ? "ol" : "ul";
-    return <ListTag className={`${block.type === "ordered_list" ? "list-decimal" : "list-disc"} min-w-0 space-y-1 pl-6 [overflow-wrap:anywhere]`}>{(block.items ?? []).map((item, index) => <li key={`${block.id}-${index}`}>{renderInlineLinks(item)}</li>)}</ListTag>;
+    return (
+      <ListTag
+        className={`${block.type === "ordered_list" ? "list-decimal" : "list-disc"} min-w-0 space-y-1 pl-6 [overflow-wrap:anywhere]`}
+      >
+        {(block.items ?? []).map((item, index) => (
+          <li key={`${block.id}-${index}`}>{renderInlineLinks(item)}</li>
+        ))}
+      </ListTag>
+    );
   }
-  if (block.type === "quote") return <blockquote className="break-words border-l-4 border-primary pl-4 italic text-muted-foreground [overflow-wrap:anywhere]">{renderInlineLinks(block.text)}</blockquote>;
-  if (block.type === "callout") return <aside className="break-words rounded-xl border bg-secondary/40 p-4 font-medium [overflow-wrap:anywhere]">{renderInlineLinks(block.text)}</aside>;
-  return <p className="min-w-0 break-words [overflow-wrap:anywhere]">{renderInlineLinks(block.text)}</p>;
+  if (block.type === "quote")
+    return (
+      <blockquote className="break-words border-l-4 border-primary pl-4 italic text-muted-foreground [overflow-wrap:anywhere]">
+        {renderInlineLinks(block.text)}
+      </blockquote>
+    );
+  if (block.type === "callout")
+    return (
+      <aside className="break-words rounded-xl border bg-secondary/40 p-4 font-medium [overflow-wrap:anywhere]">
+        {renderInlineLinks(block.text)}
+      </aside>
+    );
+  return (
+    <p className="min-w-0 break-words [overflow-wrap:anywhere]">
+      {renderInlineLinks(block.text)}
+    </p>
+  );
 }
 
 function renderInlineLinks(text: string | undefined) {
@@ -1460,7 +1585,9 @@ function readEditorialBrief(snapshot: Record<string, unknown>) {
     typeof value === "string" && value.trim() ? value : fallback;
   const list = (value: unknown, fallback: string) =>
     Array.isArray(value)
-      ? value.filter((item): item is string => typeof item === "string").join(" · ") || fallback
+      ? value
+          .filter((item): item is string => typeof item === "string")
+          .join(" · ") || fallback
       : fallback;
 
   const directAnswer = object(snapshot.directAnswerContract);
@@ -1840,13 +1967,21 @@ function ImageProposalEditor({
   const { apiFetch } = useAuth();
   const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [decision, setDecision] = useState<"APPROVED" | "CHANGES_REQUESTED" | "REJECTED" | null>(null);
+  const [decision, setDecision] = useState<
+    "APPROVED" | "CHANGES_REQUESTED" | "REJECTED" | null
+  >(null);
   const [reason, setReason] = useState("");
   const [form, setForm] = useState(() => imageForm(proposal));
 
   const save = async () => {
-    if (form.concept.trim().length < 10 || form.prompt.trim().length < 20 || form.altText.trim().length < 8) {
-      onError("Completa el concepto, las instrucciones visuales y el texto alternativo.");
+    if (
+      form.concept.trim().length < 10 ||
+      form.prompt.trim().length < 20 ||
+      form.altText.trim().length < 8
+    ) {
+      onError(
+        "Completa el concepto, las instrucciones visuales y el texto alternativo.",
+      );
       return;
     }
     setBusy(true);
@@ -1860,11 +1995,19 @@ function ImageProposalEditor({
           prompt: form.prompt.trim(),
           altText: form.altText.trim(),
           ...(form.caption.trim() ? { caption: form.caption.trim() } : {}),
-          ...(form.referenceUrl.trim() ? { referenceUrl: form.referenceUrl.trim() } : {}),
+          ...(form.referenceUrl.trim()
+            ? { referenceUrl: form.referenceUrl.trim() }
+            : {}),
         }),
       });
-      await onSaved("La propuesta visual quedó guardada y pendiente de aprobación.");
-    } catch (cause) { onError(messageFrom(cause)); } finally { setBusy(false); }
+      await onSaved(
+        "La propuesta visual quedó guardada y pendiente de aprobación.",
+      );
+    } catch (cause) {
+      onError(messageFrom(cause));
+    } finally {
+      setBusy(false);
+    }
   };
 
   const decide = async () => {
@@ -1874,30 +2017,246 @@ function ImageProposalEditor({
     try {
       await apiFetch(`notes/${noteId}/image-proposal/decision`, {
         method: "POST",
-        body: JSON.stringify({ expectedVersion: version, status: decision, reason: reason.trim() }),
+        body: JSON.stringify({
+          expectedVersion: version,
+          status: decision,
+          reason: reason.trim(),
+        }),
       });
-      await onSaved(decision === "APPROVED" ? "La propuesta visual quedó aprobada." : "La decisión sobre la imagen quedó registrada.");
-    } catch (cause) { onError(messageFrom(cause)); } finally { setBusy(false); }
+      await onSaved(
+        decision === "APPROVED"
+          ? "La propuesta visual quedó aprobada."
+          : "La decisión sobre la imagen quedó registrada.",
+      );
+    } catch (cause) {
+      onError(messageFrom(cause));
+    } finally {
+      setBusy(false);
+    }
   };
 
   const status = proposal?.status ?? "PROPOSED";
   return (
     <Card className="overflow-hidden border-sky-200">
       <CardHeader className="gap-3 bg-sky-50/60 sm:flex-row sm:items-start sm:justify-between">
-        <div><CardTitle className="flex items-center gap-2 text-base"><ImageIcon className="size-4 text-sky-700" />Propuesta visual · v{version}</CardTitle><CardDescription>Concepto, producción y accesibilidad de la imagen que acompañará la nota.</CardDescription></div>
-        <div className="flex flex-wrap gap-2"><Badge variant="outline">{imageStatusLabel(status)}</Badge>{editable ? <Button size="sm" variant="outline" onClick={() => setEditing((value) => !value)}><Pencil />{editing ? "Cerrar edición visual" : "Editar propuesta visual"}</Button> : null}</div>
+        <div>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <ImageIcon className="size-4 text-sky-700" />
+            Propuesta visual · v{version}
+          </CardTitle>
+          <CardDescription>
+            Concepto, producción y accesibilidad de la imagen que acompañará la
+            nota.
+          </CardDescription>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Badge variant="outline">{imageStatusLabel(status)}</Badge>
+          {editable ? (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setEditing((value) => !value)}
+            >
+              <Pencil />
+              {editing ? "Cerrar edición visual" : "Editar propuesta visual"}
+            </Button>
+          ) : null}
+        </div>
       </CardHeader>
       <CardContent className="space-y-4 p-5">
-        {editing ? <div className="grid gap-3 sm:grid-cols-2"><ImageField label="Concepto visual" value={form.concept} onChange={(value) => setForm((current) => ({ ...current, concept: value }))} wide area /><ImageField label="Instrucciones de producción" value={form.prompt} onChange={(value) => setForm((current) => ({ ...current, prompt: value }))} wide area /><ImageField label="Texto alternativo" value={form.altText} onChange={(value) => setForm((current) => ({ ...current, altText: value }))} wide /><ImageField label="Pie de imagen" value={form.caption} onChange={(value) => setForm((current) => ({ ...current, caption: value }))} /><ImageField label="URL de referencia visual" value={form.referenceUrl} onChange={(value) => setForm((current) => ({ ...current, referenceUrl: value }))} /><div className="sm:col-span-2 flex justify-end"><Button onClick={() => void save()} disabled={busy}><Save />Guardar propuesta</Button></div></div> : proposal ? <div className="grid gap-3 sm:grid-cols-2"><BriefField label="Concepto" value={proposal.concept} /><BriefField label="Texto alternativo" value={proposal.altText} /><div className="sm:col-span-2"><BriefField label="Instrucciones de producción" value={proposal.prompt} /></div>{proposal.caption ? <BriefField label="Pie sugerido" value={proposal.caption} /> : null}{proposal.referenceUrl ? <a href={proposal.referenceUrl} target="_blank" rel="noreferrer" className="break-all text-sm font-semibold text-primary hover:underline">Abrir referencia visual</a> : null}{proposal.decisionReason ? <div className="sm:col-span-2 rounded-xl bg-muted/40 p-3 text-sm"><strong>Decisión:</strong> {proposal.decisionReason}</div> : null}</div> : <p className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">Todavía no existe una propuesta visual para esta versión. Puedes crearla desde Editar.</p>}
-        {proposal && (canReview || canApprove) ? <div className="border-t pt-4"><div className="flex flex-wrap gap-2">{canApprove ? <Button size="sm" variant="outline" onClick={() => setDecision("APPROVED")}><CheckCircle2 />Aprobar imagen</Button> : null}{canReview ? <><Button size="sm" variant="outline" onClick={() => setDecision("CHANGES_REQUESTED")}><AlertTriangle />Pedir ajuste</Button><Button size="sm" variant="outline" onClick={() => setDecision("REJECTED")}><XCircle />Rechazar</Button></> : null}</div>{decision ? <div className="mt-3 flex flex-col gap-2 sm:flex-row"><Input value={reason} onChange={(event) => setReason(event.target.value)} autoComplete="off" placeholder="Motivo de la decisión visual" /><Button onClick={() => void decide()} disabled={busy || reason.trim().length < 5}>Confirmar</Button></div> : null}</div> : null}
+        {editing ? (
+          <div className="grid gap-3 sm:grid-cols-2">
+            <ImageField
+              label="Concepto visual"
+              value={form.concept}
+              onChange={(value) =>
+                setForm((current) => ({ ...current, concept: value }))
+              }
+              wide
+              area
+            />
+            <ImageField
+              label="Instrucciones de producción"
+              value={form.prompt}
+              onChange={(value) =>
+                setForm((current) => ({ ...current, prompt: value }))
+              }
+              wide
+              area
+            />
+            <ImageField
+              label="Texto alternativo"
+              value={form.altText}
+              onChange={(value) =>
+                setForm((current) => ({ ...current, altText: value }))
+              }
+              wide
+            />
+            <ImageField
+              label="Pie de imagen"
+              value={form.caption}
+              onChange={(value) =>
+                setForm((current) => ({ ...current, caption: value }))
+              }
+            />
+            <ImageField
+              label="URL de referencia visual"
+              value={form.referenceUrl}
+              onChange={(value) =>
+                setForm((current) => ({ ...current, referenceUrl: value }))
+              }
+            />
+            <div className="sm:col-span-2 flex justify-end">
+              <Button onClick={() => void save()} disabled={busy}>
+                <Save />
+                Guardar propuesta
+              </Button>
+            </div>
+          </div>
+        ) : proposal ? (
+          <div className="grid gap-3 sm:grid-cols-2">
+            <BriefField label="Concepto" value={proposal.concept} />
+            <BriefField label="Texto alternativo" value={proposal.altText} />
+            <div className="sm:col-span-2">
+              <BriefField
+                label="Instrucciones de producción"
+                value={proposal.prompt}
+              />
+            </div>
+            {proposal.caption ? (
+              <BriefField label="Pie sugerido" value={proposal.caption} />
+            ) : null}
+            {proposal.referenceUrl ? (
+              <a
+                href={proposal.referenceUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="break-all text-sm font-semibold text-primary hover:underline"
+              >
+                Abrir referencia visual
+              </a>
+            ) : null}
+            {proposal.decisionReason ? (
+              <div className="sm:col-span-2 rounded-xl bg-muted/40 p-3 text-sm">
+                <strong>Decisión:</strong> {proposal.decisionReason}
+              </div>
+            ) : null}
+          </div>
+        ) : (
+          <p className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">
+            Todavía no existe una propuesta visual para esta versión. Puedes
+            crearla desde Editar.
+          </p>
+        )}
+        {proposal && (canReview || canApprove) ? (
+          <div className="border-t pt-4">
+            <div className="flex flex-wrap gap-2">
+              {canApprove ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setDecision("APPROVED")}
+                >
+                  <CheckCircle2 />
+                  Aprobar imagen
+                </Button>
+              ) : null}
+              {canReview ? (
+                <>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setDecision("CHANGES_REQUESTED")}
+                  >
+                    <AlertTriangle />
+                    Pedir ajuste
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setDecision("REJECTED")}
+                  >
+                    <XCircle />
+                    Rechazar
+                  </Button>
+                </>
+              ) : null}
+            </div>
+            {decision ? (
+              <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                <Input
+                  value={reason}
+                  onChange={(event) => setReason(event.target.value)}
+                  autoComplete="off"
+                  placeholder="Motivo de la decisión visual"
+                />
+                <Button
+                  onClick={() => void decide()}
+                  disabled={busy || reason.trim().length < 5}
+                >
+                  Confirmar
+                </Button>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
       </CardContent>
     </Card>
   );
 }
 
-function imageForm(proposal: ImageProposal | null) { return { concept: proposal?.concept ?? "", prompt: proposal?.prompt ?? "", altText: proposal?.altText ?? "", caption: proposal?.caption ?? "", referenceUrl: proposal?.referenceUrl ?? "" }; }
-function imageStatusLabel(status: ImageProposal["status"] | "PROPOSED") { return ({ PROPOSED: "Pendiente de aprobación", APPROVED: "Aprobada", CHANGES_REQUESTED: "Cambios solicitados", REJECTED: "Rechazada" } as const)[status]; }
-function ImageField({ label, value, onChange, area = false, wide = false }: { label: string; value: string; onChange: (value: string) => void; area?: boolean; wide?: boolean }) { return <div className={wide ? "space-y-2 sm:col-span-2" : "space-y-2"}><Label>{label}</Label>{area ? <Textarea value={value} onChange={(event) => onChange(event.target.value)} autoComplete="off" className="min-h-24" /> : <Input value={value} onChange={(event) => onChange(event.target.value)} autoComplete="off" />}</div>; }
+function imageForm(proposal: ImageProposal | null) {
+  return {
+    concept: proposal?.concept ?? "",
+    prompt: proposal?.prompt ?? "",
+    altText: proposal?.altText ?? "",
+    caption: proposal?.caption ?? "",
+    referenceUrl: proposal?.referenceUrl ?? "",
+  };
+}
+function imageStatusLabel(status: ImageProposal["status"] | "PROPOSED") {
+  return (
+    {
+      PROPOSED: "Pendiente de aprobación",
+      APPROVED: "Aprobada",
+      CHANGES_REQUESTED: "Cambios solicitados",
+      REJECTED: "Rechazada",
+    } as const
+  )[status];
+}
+function ImageField({
+  label,
+  value,
+  onChange,
+  area = false,
+  wide = false,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  area?: boolean;
+  wide?: boolean;
+}) {
+  return (
+    <div className={wide ? "space-y-2 sm:col-span-2" : "space-y-2"}>
+      <Label>{label}</Label>
+      {area ? (
+        <Textarea
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          autoComplete="off"
+          className="min-h-24"
+        />
+      ) : (
+        <Input
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          autoComplete="off"
+        />
+      )}
+    </div>
+  );
+}
 
 function ShieldCheckIcon() {
   return <FileCheck2 className="mx-auto size-6 text-primary" />;
