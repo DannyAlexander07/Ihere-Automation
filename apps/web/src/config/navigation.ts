@@ -8,7 +8,6 @@ import {
   LayoutDashboard,
   Lightbulb,
   Settings,
-  ShieldCheck,
   Users,
   type LucideIcon,
 } from "lucide-react";
@@ -59,12 +58,6 @@ export const navigationGroups: NavigationGroup[] = [
         href: "/automatizacion/notas",
         icon: FileText,
         permissionGroups: [["notes.read"]],
-      },
-      {
-        label: "Aprobaciones",
-        href: "/automatizacion/aprobaciones",
-        icon: ShieldCheck,
-        permissionGroups: [["titles.read"], ["notes.read"]],
       },
       {
         label: "Exportaciones",

@@ -1,8 +1,5 @@
-import type { Metadata } from "next";
-import { ReviewQueueWorkspace } from "@/features/notes/review-queue-workspace";
-
-export const metadata: Metadata = { title: "Aprobaciones" };
+import { redirect } from "next/navigation";
 
 export default function ApprovalsPage() {
-  return <ReviewQueueWorkspace />;
+  redirect("/automatizacion/notas");
 }

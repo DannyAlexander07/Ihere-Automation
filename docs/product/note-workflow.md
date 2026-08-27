@@ -151,7 +151,7 @@ Toda edición posterior a una generación o QA debe conservar campo, antes, desp
 1. `Notas / Bandeja`: cliente, etapa, responsable, QA, fecha y búsqueda.
 2. `Notas / Editor`: brief, estructura, contenido, fuentes y metadatos.
 3. `Notas / QA`: puntajes, bloqueos, hallazgos y evidencia.
-4. `Notas / Aprobaciones`: comparación de versiones y decisión humana.
+4. `Notas / Editor`: comparación de versiones y decisión humana cuando la nota está lista para revisión.
 5. `Notas / Exportaciones`: archivos, versión, fecha, huella y descarga.
 
 En móvil se priorizan estado, bloqueos y acciones; la edición extensa usa secciones plegables. En laptop se usa un editor central con panel lateral. En pantallas grandes se muestran brief, contenido y QA en tres zonas sin ampliar artificialmente la tipografía.

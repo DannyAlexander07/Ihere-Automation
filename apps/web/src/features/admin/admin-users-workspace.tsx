@@ -80,7 +80,6 @@ const preferredAccessProfileOrder = [
   "automation.clients",
   "automation.titles",
   "automation.notes",
-  "automation.approvals",
   "automation.exports",
   "automation.learning",
   "automation.summary",
@@ -90,7 +89,6 @@ const accessProfileLabels: Record<string, string> = {
   "automation.clients": "Clientes",
   "automation.titles": "Propuestas de títulos",
   "automation.notes": "Notas",
-  "automation.approvals": "Aprobaciones",
   "automation.exports": "Exportaciones",
   "automation.learning": "Aprendizaje editorial",
   "automation.summary": "Resumen ejecutivo",
@@ -1451,7 +1449,7 @@ function accessProfilesFromRoles(roles: AdminRole[]): AccessProfile[] {
   return roles
     .filter(
       (role) =>
-        role.code !== "automation.quality" &&
+        !["automation.quality", "automation.approvals"].includes(role.code) &&
         !role.code.endsWith(".reader") &&
         role.code.split(".").length === 2 &&
         roleByCode.has(`${role.code}.reader`),

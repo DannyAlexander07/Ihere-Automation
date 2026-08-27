@@ -101,10 +101,8 @@ type Decision = "APPROVE" | "REQUEST_CHANGES" | "REJECT";
 
 export function NoteEditorWorkspace({
   noteId,
-  origin,
 }: {
   noteId: string;
-  origin?: "approval";
 }) {
   const { apiFetch, user } = useAuth();
   const [note, setNote] = useState<ApiNoteDetail | null>(null);
@@ -434,13 +432,10 @@ export function NoteEditorWorkspace({
   }
 
   const editorialBrief = readEditorialBrief(note.briefSnapshot);
-  const backDestination =
-    origin === "approval"
-      ? {
-          href: "/automatizacion/aprobaciones",
-          label: "Volver a aprobaciones",
-        }
-      : { href: "/automatizacion/notas", label: "Volver a notas" };
+  const backDestination = {
+    href: "/automatizacion/notas",
+    label: "Volver a notas",
+  };
 
   return (
     <div className="space-y-4">

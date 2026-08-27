@@ -210,6 +210,9 @@ describe("AdminUsersWorkspace", () => {
       "access-level-automation.titles",
     );
     expect(titleLevel).not.toBeNull();
+    expect(
+      document.getElementById("access-level-automation.approvals"),
+    ).toBeNull();
     fireEvent.change(titleLevel!, { target: { value: "EDIT" } });
     fireEvent.click(
       await screen.findByRole("button", { name: "Guardar matriz de accesos" }),

@@ -127,7 +127,7 @@ export function DashboardOverview() {
             <MetricCard label="Títulos por revisar" value={String(summary.metrics.titlesToReview)} detail="Pendientes visibles para tu acceso" icon={Lightbulb} />
             <MetricCard label="Notas en proceso" value={String(summary.metrics.notesInProgress)} detail="Expedientes editoriales activos" icon={FileText} tone="blue" />
             <MetricCard label="Alertas de calidad" value={String(summary.metrics.qualityAlerts)} detail="Revisiones o cambios requeridos" icon={ClipboardCheck} tone="pink" />
-            <MetricCard label="Aprobaciones pendientes" value={String(summary.metrics.approvalsPending)} detail="Listas para decisión humana" icon={ShieldCheck} tone="green" />
+            <MetricCard label="Notas para revisar" value={String(summary.metrics.approvalsPending)} detail="Listas para decisión humana" icon={ShieldCheck} tone="green" />
           </section>
 
           <WorkflowBoard workflow={summary.workflow} generatedAt={summary.generatedAt} />
