@@ -19,12 +19,20 @@ import {
   Grid2X2,
   List,
   Send,
+  Trash2,
 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/features/auth/auth-provider";
 import { formatCampaignMonth } from "@/lib/date/campaign-month";
@@ -32,9 +40,17 @@ import type { ApiClientSummary, ApiTitle } from "@/features/titles/title-api";
 import { ApiError } from "@/lib/api/api-client";
 import { ReviewLinkDialog } from "@/features/client-review/review-link-dialog";
 import { NoteStatusBadge } from "./note-status-badge";
-import { noteStatusLabels, type ApiNoteSummary, type NoteStatus } from "./types";
+import {
+  noteStatusLabels,
+  type ApiNoteSummary,
+  type NoteStatus,
+} from "./types";
 
-const selectClass = "h-10 rounded-lg border border-input bg-card px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+const selectClass =
+  "h-10 rounded-lg border border-input bg-card px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+type DeleteTarget =
+  | { kind: "note"; note: ApiNoteSummary }
+  | { kind: "folder"; folder: NoteFolder };
 
 export function NotesWorkspace() {
   const router = useRouter();
@@ -49,24 +65,36 @@ export function NotesWorkspace() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedFolderKey, setSelectedFolderKey] = useState<string | null>(null);
+  const [selectedFolderKey, setSelectedFolderKey] = useState<string | null>(
+    null,
+  );
   const [folderView, setFolderView] = useState<"grid" | "list">("grid");
   const [folderPage, setFolderPage] = useState(1);
   const [reviewFolder, setReviewFolder] = useState<NoteFolder | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const canDelete = Boolean(user?.tenantPermissions.includes("notes.delete"));
 
-  const loadNotes = useCallback(async (nextClientId: string) => {
-    if (!nextClientId) {
-      setNotes([]);
-      setApprovedTitles([]);
-      return;
-    }
-    const [nextNotes, titles] = await Promise.all([
-      apiFetch<ApiNoteSummary[]>(`notes?clientId=${encodeURIComponent(nextClientId)}`),
-      apiFetch<ApiTitle[]>(`titles?clientId=${encodeURIComponent(nextClientId)}&status=APPROVED`),
-    ]);
-    setNotes(nextNotes);
-    setApprovedTitles(titles);
-  }, [apiFetch]);
+  const loadNotes = useCallback(
+    async (nextClientId: string) => {
+      if (!nextClientId) {
+        setNotes([]);
+        setApprovedTitles([]);
+        return;
+      }
+      const [nextNotes, titles] = await Promise.all([
+        apiFetch<ApiNoteSummary[]>(
+          `notes?clientId=${encodeURIComponent(nextClientId)}`,
+        ),
+        apiFetch<ApiTitle[]>(
+          `titles?clientId=${encodeURIComponent(nextClientId)}&status=APPROVED`,
+        ),
+      ]);
+      setNotes(nextNotes);
+      setApprovedTitles(titles);
+    },
+    [apiFetch],
+  );
 
   const initialize = useCallback(async () => {
     setLoading(true);
@@ -92,8 +120,12 @@ export function NotesWorkspace() {
         const nextClientId = nextClients[0]?.id ?? "";
         const [nextNotes, titles] = nextClientId
           ? await Promise.all([
-              apiFetch<ApiNoteSummary[]>(`notes?clientId=${encodeURIComponent(nextClientId)}`),
-              apiFetch<ApiTitle[]>(`titles?clientId=${encodeURIComponent(nextClientId)}&status=APPROVED`),
+              apiFetch<ApiNoteSummary[]>(
+                `notes?clientId=${encodeURIComponent(nextClientId)}`,
+              ),
+              apiFetch<ApiTitle[]>(
+                `titles?clientId=${encodeURIComponent(nextClientId)}&status=APPROVED`,
+              ),
             ])
           : [[], []];
         if (cancelled) return;
@@ -108,30 +140,55 @@ export function NotesWorkspace() {
       }
     };
     void load();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [apiFetch]);
 
   const filtered = useMemo(() => {
     const normalized = search.trim().toLocaleLowerCase("es");
     return notes.filter((note) => {
       const version = note.versions[0];
-      return (statusFilter === "ALL" || note.status === statusFilter) &&
-        (!normalized || [version?.title ?? "", note.client.name].some((value) => value.toLocaleLowerCase("es").includes(normalized)));
+      return (
+        (statusFilter === "ALL" || note.status === statusFilter) &&
+        (!normalized ||
+          [version?.title ?? "", note.client.name].some((value) =>
+            value.toLocaleLowerCase("es").includes(normalized),
+          ))
+      );
     });
   }, [notes, search, statusFilter]);
 
-  const stats = useMemo(() => ({
-    active: notes.filter((note) => !["APPROVED", "REJECTED", "EXPORTED", "ARCHIVED"].includes(note.status)).length,
-    qa: notes.filter((note) => ["QA_QUEUED", "QA_RUNNING", "CHANGES_REQUESTED"].includes(note.status)).length,
-    review: notes.filter((note) => note.status === "READY_FOR_REVIEW").length,
-    approved: notes.filter((note) => ["APPROVED", "EXPORTED"].includes(note.status)).length,
-  }), [notes]);
+  const stats = useMemo(
+    () => ({
+      active: notes.filter(
+        (note) =>
+          !["APPROVED", "REJECTED", "EXPORTED", "ARCHIVED"].includes(
+            note.status,
+          ),
+      ).length,
+      qa: notes.filter((note) =>
+        ["QA_QUEUED", "QA_RUNNING", "CHANGES_REQUESTED"].includes(note.status),
+      ).length,
+      review: notes.filter((note) => note.status === "READY_FOR_REVIEW").length,
+      approved: notes.filter((note) =>
+        ["APPROVED", "EXPORTED"].includes(note.status),
+      ).length,
+    }),
+    [notes],
+  );
 
   const folders = useMemo(() => groupNoteFolders(filtered), [filtered]);
   const folderPageSize = 6;
-  const folderPageCount = Math.max(1, Math.ceil(folders.length / folderPageSize));
+  const folderPageCount = Math.max(
+    1,
+    Math.ceil(folders.length / folderPageSize),
+  );
   const currentFolderPage = Math.min(folderPage, folderPageCount);
-  const visibleFolders = folders.slice((currentFolderPage - 1) * folderPageSize, currentFolderPage * folderPageSize);
+  const visibleFolders = folders.slice(
+    (currentFolderPage - 1) * folderPageSize,
+    currentFolderPage * folderPageSize,
+  );
   const selectedFolder =
     folders.find((folder) => folder.key === selectedFolderKey) ?? null;
   const reviewableNotes = (folder: NoteFolder) =>
@@ -163,27 +220,147 @@ export function NotesWorkspace() {
     setFolderPage(1);
     setLoading(true);
     setError(null);
-    try { await loadNotes(nextClientId); } catch (reason) { setError(messageFrom(reason)); } finally { setLoading(false); }
+    try {
+      await loadNotes(nextClientId);
+    } catch (reason) {
+      setError(messageFrom(reason));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    setError(null);
+    try {
+      if (deleteTarget.kind === "note") {
+        await apiFetch(`notes/${deleteTarget.note.id}`, { method: "DELETE" });
+      } else {
+        await apiFetch("notes/folders", {
+          method: "DELETE",
+          body: JSON.stringify({
+            clientId: deleteTarget.folder.clientId,
+            folderKey: deleteTarget.folder.key,
+          }),
+        });
+      }
+      setSelectedFolderKey(null);
+      setDeleteTarget(null);
+      await loadNotes(clientId);
+    } catch (reason) {
+      setError(messageFrom(reason));
+    } finally {
+      setDeleting(false);
+    }
   };
 
   return (
     <div className="space-y-4 min-[1920px]:space-y-5">
       <section className="flex flex-col justify-between gap-3 rounded-xl border bg-card p-4 shadow-card lg:flex-row lg:items-center">
-        <div><div className="mb-1 flex items-center gap-2 text-xs font-semibold text-primary"><FileText className="size-3.5" />Automatización de notas</div><h1 className="text-xl font-semibold sm:text-2xl">Bandeja editorial</h1><p className="mt-1 text-sm text-muted-foreground">Versiones, QA, decisiones y entregas desde un expediente trazable.</p></div>
-        <Button onClick={() => setCreateOpen(true)} disabled={!approvedTitles.length || !user?.permissions.includes("notes.create")}><FilePlus2 />Crear desde título aprobado</Button>
+        <div>
+          <div className="mb-1 flex items-center gap-2 text-xs font-semibold text-primary">
+            <FileText className="size-3.5" />
+            Automatización de notas
+          </div>
+          <h1 className="text-xl font-semibold sm:text-2xl">
+            Bandeja editorial
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Versiones, QA, decisiones y entregas desde un expediente trazable.
+          </p>
+        </div>
+        <Button
+          onClick={() => setCreateOpen(true)}
+          disabled={
+            !approvedTitles.length ||
+            !user?.permissions.includes("notes.create")
+          }
+        >
+          <FilePlus2 />
+          Crear desde título aprobado
+        </Button>
       </section>
 
-      {error ? <Alert variant="destructive"><AlertTriangle /><AlertTitle>No pudimos completar la operación</AlertTitle><AlertDescription className="flex flex-wrap items-center justify-between gap-3"><span>{error}</span><Button variant="outline" size="sm" onClick={() => void initialize()}><RefreshCw />Reintentar</Button></AlertDescription></Alert> : null}
+      {error ? (
+        <Alert variant="destructive">
+          <AlertTriangle />
+          <AlertTitle>No pudimos completar la operación</AlertTitle>
+          <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
+            <span>{error}</span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void initialize()}
+            >
+              <RefreshCw />
+              Reintentar
+            </Button>
+          </AlertDescription>
+        </Alert>
+      ) : null}
 
-      <section className="grid grid-cols-2 gap-3 xl:grid-cols-4" aria-label="Resumen de notas">
-        {[["En proceso", stats.active], ["En QA o cambios", stats.qa], ["Para aprobación", stats.review], ["Aprobadas", stats.approved]].map(([label, value]) => <Card key={String(label)}><CardContent className="p-3.5 sm:p-4"><p className="text-[11px] text-muted-foreground">{label}</p><p className="mt-1 font-heading text-2xl font-semibold">{value}</p></CardContent></Card>)}
+      <section
+        className="grid grid-cols-2 gap-3 xl:grid-cols-4"
+        aria-label="Resumen de notas"
+      >
+        {[
+          ["En proceso", stats.active],
+          ["En QA o cambios", stats.qa],
+          ["Para aprobación", stats.review],
+          ["Aprobadas", stats.approved],
+        ].map(([label, value]) => (
+          <Card key={String(label)}>
+            <CardContent className="p-3.5 sm:p-4">
+              <p className="text-[11px] text-muted-foreground">{label}</p>
+              <p className="mt-1 font-heading text-2xl font-semibold">
+                {value}
+              </p>
+            </CardContent>
+          </Card>
+        ))}
       </section>
 
       <section className="rounded-xl border bg-card p-3 shadow-card sm:p-4">
         <div className="grid gap-2 md:grid-cols-[220px_1fr_220px]">
-          <select value={clientId} onChange={(event) => void changeClient(event.target.value)} className={selectClass} aria-label="Seleccionar cliente">{clients.length ? null : <option value="">Sin clientes</option>}{clients.map((client) => <option key={client.id} value={client.id}>{client.name}</option>)}</select>
-          <div className="relative"><Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><Input value={search} onChange={(event) => setSearch(event.target.value)} className="pl-9" placeholder="Buscar por nota o cliente…" aria-label="Buscar notas" /></div>
-          <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as "ALL" | NoteStatus)} className={selectClass} aria-label="Filtrar por estado"><option value="ALL">Todos los estados</option>{Object.entries(noteStatusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
+          <select
+            value={clientId}
+            onChange={(event) => void changeClient(event.target.value)}
+            className={selectClass}
+            aria-label="Seleccionar cliente"
+          >
+            {clients.length ? null : <option value="">Sin clientes</option>}
+            {clients.map((client) => (
+              <option key={client.id} value={client.id}>
+                {client.name}
+              </option>
+            ))}
+          </select>
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              className="pl-9"
+              placeholder="Buscar por nota o cliente…"
+              aria-label="Buscar notas"
+            />
+          </div>
+          <select
+            value={statusFilter}
+            onChange={(event) =>
+              setStatusFilter(event.target.value as "ALL" | NoteStatus)
+            }
+            className={selectClass}
+            aria-label="Filtrar por estado"
+          >
+            <option value="ALL">Todos los estados</option>
+            {Object.entries(noteStatusLabels).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
         </div>
       </section>
 
@@ -197,22 +374,31 @@ export function NotesWorkspace() {
         <section className="overflow-hidden rounded-2xl border bg-card shadow-card">
           <div className="flex flex-wrap items-center gap-2 border-b bg-secondary/25 px-4 py-3 text-sm">
             {selectedFolder ? (
-              <Button variant="ghost" size="sm" onClick={() => setSelectedFolderKey(null)}>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelectedFolderKey(null)}
+              >
                 <ArrowLeft /> Carpetas
               </Button>
             ) : (
               <span className="inline-flex items-center gap-2 font-semibold">
-                <FolderOpen className="size-4 text-sky-600" /> Expedientes de notas
+                <FolderOpen className="size-4 text-sky-600" /> Expedientes de
+                notas
               </span>
             )}
             {selectedFolder ? (
               <>
                 <ChevronRight className="size-4 text-muted-foreground" />
-                <span className="text-muted-foreground">{selectedFolder.client}</span>
+                <span className="text-muted-foreground">
+                  {selectedFolder.client}
+                </span>
                 <ChevronRight className="size-4 text-muted-foreground" />
                 <span>{selectedFolder.year}</span>
                 <ChevronRight className="size-4 text-muted-foreground" />
-                <span className="capitalize text-muted-foreground">{monthLabel(selectedFolder.year, selectedFolder.month)}</span>
+                <span className="capitalize text-muted-foreground">
+                  {monthLabel(selectedFolder.year, selectedFolder.month)}
+                </span>
                 <ChevronRight className="size-4 text-muted-foreground" />
                 <strong className="truncate">{selectedFolder.topic}</strong>
                 {selectedFolder.generationRunId &&
@@ -226,54 +412,176 @@ export function NotesWorkspace() {
                     <Send /> Enviar paquete al cliente
                   </Button>
                 ) : null}
+                {canDelete ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    onClick={() =>
+                      setDeleteTarget({
+                        kind: "folder",
+                        folder: selectedFolder,
+                      })
+                    }
+                  >
+                    <Trash2 /> Eliminar expediente
+                  </Button>
+                ) : null}
               </>
             ) : null}
             {!selectedFolder ? (
-              <div className="ml-auto flex rounded-lg border bg-background p-1" aria-label="Tipo de vista">
-                <Button size="icon" variant={folderView === "grid" ? "secondary" : "ghost"} onClick={() => setFolderView("grid")} aria-label="Vista de cuadrícula"><Grid2X2 /></Button>
-                <Button size="icon" variant={folderView === "list" ? "secondary" : "ghost"} onClick={() => setFolderView("list")} aria-label="Vista de lista"><List /></Button>
+              <div
+                className="ml-auto flex rounded-lg border bg-background p-1"
+                aria-label="Tipo de vista"
+              >
+                <Button
+                  size="icon"
+                  variant={folderView === "grid" ? "secondary" : "ghost"}
+                  onClick={() => setFolderView("grid")}
+                  aria-label="Vista de cuadrícula"
+                >
+                  <Grid2X2 />
+                </Button>
+                <Button
+                  size="icon"
+                  variant={folderView === "list" ? "secondary" : "ghost"}
+                  onClick={() => setFolderView("list")}
+                  aria-label="Vista de lista"
+                >
+                  <List />
+                </Button>
               </div>
             ) : null}
           </div>
           {selectedFolder ? (
-            <NoteCards notes={selectedFolder.notes} />
+            <NoteCards
+              notes={selectedFolder.notes}
+              canDelete={canDelete}
+              onDelete={(note) => setDeleteTarget({ kind: "note", note })}
+            />
           ) : (
             <div>
-            <div className={folderView === "grid" ? "grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-3" : "divide-y"}>
-              {visibleFolders.map((folder) => {
-                const approved = folder.notes.filter((note) => ["APPROVED", "EXPORTED"].includes(note.status)).length;
-                const attention = folder.notes.filter((note) => ["CHANGES_REQUESTED", "REJECTED"].includes(note.status)).length;
-                const progress = Math.round((approved / Math.max(folder.notes.length, 1)) * 100);
-                return (
-                <button
-                  key={folder.key}
-                  type="button"
-                  onClick={() => setSelectedFolderKey(folder.key)}
-                  className={`group text-left transition hover:bg-secondary/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${folderView === "grid" ? "rounded-2xl border bg-background p-4 shadow-sm hover:-translate-y-0.5 hover:shadow-md" : "flex w-full items-center gap-4 px-4 py-3"}`}
+              <div
+                className={
+                  folderView === "grid"
+                    ? "grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-3"
+                    : "divide-y"
+                }
+              >
+                {visibleFolders.map((folder) => {
+                  const approved = folder.notes.filter((note) =>
+                    ["APPROVED", "EXPORTED"].includes(note.status),
+                  ).length;
+                  const attention = folder.notes.filter((note) =>
+                    ["CHANGES_REQUESTED", "REJECTED"].includes(note.status),
+                  ).length;
+                  const progress = Math.round(
+                    (approved / Math.max(folder.notes.length, 1)) * 100,
+                  );
+                  return (
+                    <div
+                      key={folder.key}
+                      className={`group relative text-left transition hover:bg-secondary/45 focus-within:ring-2 focus-within:ring-ring ${folderView === "grid" ? "rounded-2xl border bg-background p-4 shadow-sm hover:-translate-y-0.5 hover:shadow-md" : "flex w-full items-center gap-4 px-4 py-3"}`}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => setSelectedFolderKey(folder.key)}
+                        className="flex min-w-0 flex-1 items-center gap-4 text-left focus-visible:outline-none"
+                      >
+                        <span className="relative grid size-14 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-secondary to-accent/70 text-primary ring-1 ring-border">
+                          <Folder className="size-8 fill-sky-200/70" />
+                          {attention ? (
+                            <span className="absolute -right-1 -top-1 grid size-5 place-items-center rounded-full bg-amber-500 text-[10px] font-bold text-white">
+                              {attention}
+                            </span>
+                          ) : null}
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <strong className="block line-clamp-2 text-[15px] font-bold leading-5 group-hover:text-primary">
+                            {folder.topic}
+                          </strong>
+                          <span className="mt-1 block text-xs capitalize text-muted-foreground">
+                            {folder.client} ·{" "}
+                            {monthLabel(folder.year, folder.month)}
+                          </span>
+                          <span className="mt-2 flex items-center justify-between gap-3 text-xs text-muted-foreground">
+                            <span>
+                              {approved} de {folder.notes.length} aprobadas
+                            </span>
+                            <strong className="text-foreground">
+                              {progress}%
+                            </strong>
+                          </span>
+                          <span className="mt-2 block h-1.5 overflow-hidden rounded-full bg-muted">
+                            <span
+                              className="block h-full rounded-full bg-primary"
+                              style={{ width: `${progress}%` }}
+                            />
+                          </span>
+                        </span>
+                      </button>
+                      {canDelete ? (
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          className={
+                            folderView === "grid"
+                              ? "absolute right-3 top-3 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                              : "text-destructive hover:bg-destructive/10 hover:text-destructive"
+                          }
+                          onClick={() =>
+                            setDeleteTarget({ kind: "folder", folder })
+                          }
+                          aria-label={`Eliminar expediente ${folder.topic}`}
+                        >
+                          <Trash2 />
+                        </Button>
+                      ) : null}
+                      {folderView === "list" ? (
+                        <ChevronRight className="size-4 text-muted-foreground" />
+                      ) : null}
+                    </div>
+                  );
+                })}
+              </div>
+              {folderPageCount > 1 ? (
+                <nav
+                  className="flex flex-wrap items-center justify-between gap-3 border-t bg-secondary/15 px-4 py-3"
+                  aria-label="Paginación de expedientes de notas"
                 >
-                  <span className="relative grid size-14 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-secondary to-accent/70 text-primary ring-1 ring-border">
-                    <Folder className="size-8 fill-sky-200/70" />
-                    {attention ? <span className="absolute -right-1 -top-1 grid size-5 place-items-center rounded-full bg-amber-500 text-[10px] font-bold text-white">{attention}</span> : null}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <strong className="block line-clamp-2 text-[15px] font-bold leading-5 group-hover:text-primary">{folder.topic}</strong>
-                    <span className="mt-1 block text-xs capitalize text-muted-foreground">{folder.client} · {monthLabel(folder.year, folder.month)}</span>
-                    <span className="mt-2 flex items-center justify-between gap-3 text-xs text-muted-foreground"><span>{approved} de {folder.notes.length} aprobadas</span><strong className="text-foreground">{progress}%</strong></span>
-                    <span className="mt-2 block h-1.5 overflow-hidden rounded-full bg-muted"><span className="block h-full rounded-full bg-primary" style={{ width: `${progress}%` }} /></span>
-                  </span>
-                  {folderView === "list" ? <ChevronRight className="size-4 text-muted-foreground" /> : null}
-                </button>
-              );})}
-            </div>
-            {folderPageCount > 1 ? (
-              <nav className="flex flex-wrap items-center justify-between gap-3 border-t bg-secondary/15 px-4 py-3" aria-label="Paginación de expedientes de notas">
-                <p className="text-xs text-muted-foreground">Página {currentFolderPage} de {folderPageCount} · {folders.length} expedientes</p>
-                <div className="flex gap-2">
-                  <Button size="sm" variant="outline" onClick={() => setFolderPage((page) => Math.max(1, page - 1))} disabled={currentFolderPage === 1}><ChevronLeft />Anterior</Button>
-                  <Button size="sm" variant="outline" onClick={() => setFolderPage((page) => Math.min(folderPageCount, page + 1))} disabled={currentFolderPage === folderPageCount}>Siguiente<ChevronRight /></Button>
-                </div>
-              </nav>
-            ) : null}
+                  <p className="text-xs text-muted-foreground">
+                    Página {currentFolderPage} de {folderPageCount} ·{" "}
+                    {folders.length} expedientes
+                  </p>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() =>
+                        setFolderPage((page) => Math.max(1, page - 1))
+                      }
+                      disabled={currentFolderPage === 1}
+                    >
+                      <ChevronLeft />
+                      Anterior
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() =>
+                        setFolderPage((page) =>
+                          Math.min(folderPageCount, page + 1),
+                        )
+                      }
+                      disabled={currentFolderPage === folderPageCount}
+                    >
+                      Siguiente
+                      <ChevronRight />
+                    </Button>
+                  </div>
+                </nav>
+              ) : null}
             </div>
           )}
         </section>
@@ -282,16 +590,58 @@ export function NotesWorkspace() {
           <CardContent className="grid min-h-56 place-items-center p-6 text-center">
             <div>
               <ShieldCheck className="mx-auto size-7 text-primary" />
-              <p className="mt-3 text-sm font-semibold">No hay notas con estos filtros</p>
+              <p className="mt-3 text-sm font-semibold">
+                No hay notas con estos filtros
+              </p>
               <p className="mt-1 text-xs text-muted-foreground">
-                Crea un expediente desde un título aprobado o ajusta los filtros.
+                Crea un expediente desde un título aprobado o ajusta los
+                filtros.
               </p>
             </div>
           </CardContent>
         </Card>
       )}
 
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}><DialogContent className="sm:max-w-xl"><DialogHeader><DialogTitle>Crear expediente de nota</DialogTitle><DialogDescription>Solo aparecen títulos aprobados que todavía no se han utilizado.</DialogDescription></DialogHeader><div className="max-h-[55vh] space-y-2 overflow-y-auto pr-1">{approvedTitles.length ? approvedTitles.map((title) => <button key={title.id} type="button" onClick={() => void createNote(title.id)} disabled={Boolean(busyId)} className="w-full rounded-xl border p-3 text-left hover:border-primary/30 hover:bg-secondary/30 disabled:opacity-60"><p className="text-sm font-semibold">{title.title}</p><p className="mt-1 text-xs text-muted-foreground">{title.objective}</p>{busyId === title.id ? <LoaderCircle className="mt-2 size-4 animate-spin" /> : null}</button>) : <p className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">No hay títulos aprobados disponibles.</p>}</div><DialogFooter><Button variant="outline" onClick={() => setCreateOpen(false)}>Cancelar</Button></DialogFooter></DialogContent></Dialog>
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent className="sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Crear expediente de nota</DialogTitle>
+            <DialogDescription>
+              Solo aparecen títulos aprobados que todavía no se han utilizado.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[55vh] space-y-2 overflow-y-auto pr-1">
+            {approvedTitles.length ? (
+              approvedTitles.map((title) => (
+                <button
+                  key={title.id}
+                  type="button"
+                  onClick={() => void createNote(title.id)}
+                  disabled={Boolean(busyId)}
+                  className="w-full rounded-xl border p-3 text-left hover:border-primary/30 hover:bg-secondary/30 disabled:opacity-60"
+                >
+                  <p className="text-sm font-semibold">{title.title}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {title.objective}
+                  </p>
+                  {busyId === title.id ? (
+                    <LoaderCircle className="mt-2 size-4 animate-spin" />
+                  ) : null}
+                </button>
+              ))
+            ) : (
+              <p className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
+                No hay títulos aprobados disponibles.
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreateOpen(false)}>
+              Cancelar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       {reviewFolder?.generationRunId ? (
         <ReviewLinkDialog
           kind="note-package"
@@ -302,12 +652,52 @@ export function NotesWorkspace() {
           onClose={() => setReviewFolder(null)}
         />
       ) : null}
+      <Dialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(open) => {
+          if (!open && !deleting) setDeleteTarget(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>¿Estás seguro de eliminar?</DialogTitle>
+            <DialogDescription>
+              {deleteTarget?.kind === "folder"
+                ? `Se eliminarán las ${deleteTarget.folder.notes.length} notas del expediente “${deleteTarget.folder.topic}”, sus versiones, QA, revisiones y exportaciones.`
+                : `Se eliminará “${deleteTarget?.note.versions[0]?.title ?? "esta nota"}”, sus versiones, QA, revisiones y exportaciones.`}
+            </DialogDescription>
+          </DialogHeader>
+          <p className="rounded-xl border border-sky-200 bg-sky-50 p-3 text-sm text-sky-950">
+            El título aprobado volverá automáticamente a la lista “Crear desde
+            título aprobado”. Las notas vinculadas a publicaciones se protegen y
+            no podrán eliminarse.
+          </p>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setDeleteTarget(null)}
+              disabled={deleting}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => void confirmDelete()}
+              disabled={deleting}
+            >
+              {deleting ? <LoaderCircle className="animate-spin" /> : null}
+              Sí, eliminar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
 
 type NoteFolder = {
   key: string;
+  clientId: string;
   client: string;
   year: number;
   month: number;
@@ -321,7 +711,8 @@ function groupNoteFolders(notes: ApiNoteSummary[]): NoteFolder[] {
   notes.forEach((note) => {
     const run = note.titleProposal.generationRun;
     const created = new Date(run?.createdAt ?? note.createdAt);
-    const key = run?.editorialFolderKey ?? `manual:${note.client.slug}:${note.id}`;
+    const key =
+      run?.editorialFolderKey ?? `manual:${note.client.slug}:${note.id}`;
     const current = folders.get(key);
     if (current) {
       current.notes.push(note);
@@ -329,10 +720,12 @@ function groupNoteFolders(notes: ApiNoteSummary[]): NoteFolder[] {
     }
     folders.set(key, {
       key,
+      clientId: note.clientId,
       client: note.client.name,
       year: run?.campaignYear ?? created.getUTCFullYear(),
       month: run?.campaignMonth ?? created.getUTCMonth() + 1,
-      topic: run?.campaignTopic ?? note.versions[0]?.title ?? "Expediente editorial",
+      topic:
+        run?.campaignTopic ?? note.versions[0]?.title ?? "Expediente editorial",
       generationRunId: run?.id ?? null,
       notes: [note],
     });
@@ -342,7 +735,15 @@ function groupNoteFolders(notes: ApiNoteSummary[]): NoteFolder[] {
   );
 }
 
-function NoteCards({ notes }: { notes: ApiNoteSummary[] }) {
+function NoteCards({
+  notes,
+  canDelete,
+  onDelete,
+}: {
+  notes: ApiNoteSummary[];
+  canDelete: boolean;
+  onDelete: (note: ApiNoteSummary) => void;
+}) {
   return (
     <div className="grid gap-3 p-4">
       {notes.map((note) => {
@@ -352,40 +753,57 @@ function NoteCards({ notes }: { notes: ApiNoteSummary[] }) {
           ? qa.criticalBlockers.length
           : 0;
         return (
-          <Link
+          <div
             key={note.id}
-            href={`/automatizacion/notas/${note.id}`}
-            className="group rounded-xl border bg-card p-4 transition hover:border-primary/30 hover:shadow-soft"
+            className="group flex items-center gap-2 rounded-xl border bg-card p-2 transition hover:border-primary/30 hover:shadow-soft"
           >
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <NoteStatusBadge status={note.status} />
-                  <Badge variant="outline">v{note.currentVersion}</Badge>
-                  <span className="text-[11px] text-muted-foreground">
-                    {note.client.name}
+            <Link
+              href={`/automatizacion/notas/${note.id}`}
+              className="min-w-0 flex-1 p-2"
+            >
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <NoteStatusBadge status={note.status} />
+                    <Badge variant="outline">v{note.currentVersion}</Badge>
+                    <span className="text-[11px] text-muted-foreground">
+                      {note.client.name}
+                    </span>
+                  </div>
+                  <h2 className="mt-2 truncate text-sm font-semibold group-hover:text-primary">
+                    {version?.title ?? "Nota sin título"}
+                  </h2>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {version?.wordCount ?? 0} palabras ·{" "}
+                    {version?._count.sources ?? 0} fuentes · Actualizada{" "}
+                    {formatDate(note.updatedAt)}
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-2 sm:flex">
+                  <span className="rounded-lg bg-muted/60 px-3 py-2 text-xs">
+                    <strong>{qa?.overallScore ?? "—"}</strong>
+                    <span className="ml-1 text-muted-foreground">QA</span>
+                  </span>
+                  <span className="rounded-lg bg-muted/60 px-3 py-2 text-xs">
+                    <strong>{blockers}</strong>
+                    <span className="ml-1 text-muted-foreground">bloqueos</span>
                   </span>
                 </div>
-                <h2 className="mt-2 truncate text-sm font-semibold group-hover:text-primary">
-                  {version?.title ?? "Nota sin título"}
-                </h2>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {version?.wordCount ?? 0} palabras · {version?._count.sources ?? 0}{" "}
-                  fuentes · Actualizada {formatDate(note.updatedAt)}
-                </p>
               </div>
-              <div className="grid grid-cols-2 gap-2 sm:flex">
-                <span className="rounded-lg bg-muted/60 px-3 py-2 text-xs">
-                  <strong>{qa?.overallScore ?? "—"}</strong>
-                  <span className="ml-1 text-muted-foreground">QA</span>
-                </span>
-                <span className="rounded-lg bg-muted/60 px-3 py-2 text-xs">
-                  <strong>{blockers}</strong>
-                  <span className="ml-1 text-muted-foreground">bloqueos</span>
-                </span>
-              </div>
-            </div>
-          </Link>
+            </Link>
+            {canDelete ? (
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                className="shrink-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                onClick={() => onDelete(note)}
+                aria-label={`Eliminar nota ${version?.title ?? "sin título"}`}
+              >
+                <Trash2 />
+              </Button>
+            ) : null}
+          </div>
         );
       })}
     </div>
@@ -396,5 +814,14 @@ function monthLabel(year: number, month: number) {
   return formatCampaignMonth(year, month);
 }
 
-function formatDate(value: string) { return new Intl.DateTimeFormat("es-PE", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value)); }
-function messageFrom(error: unknown) { return error instanceof ApiError || error instanceof Error ? error.message : "Ocurrió un error inesperado."; }
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat("es-PE", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(value));
+}
+function messageFrom(error: unknown) {
+  return error instanceof ApiError || error instanceof Error
+    ? error.message
+    : "Ocurrió un error inesperado.";
+}

@@ -18,6 +18,14 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useAuth } from "@/features/auth/auth-provider";
 import { hasClientPermission } from "@/features/auth/permissions";
 import { ApiError } from "@/lib/api/api-client";
@@ -38,7 +46,7 @@ import { getTitleBlockingReasons, titleStatusLabels } from "./rules";
 import { type ApiClientSummary, type ApiTitle, mapApiTitle } from "./title-api";
 import { TitleDetailSheet } from "./title-detail-sheet";
 import { TitlePackageList } from "./title-package-list";
-import type { TitlePackageGroup } from "./title-packages";
+import type { EditorialFolderGroup, TitlePackageGroup } from "./title-packages";
 import { TitleRulesDialog } from "./title-rules-dialog";
 import type {
   DuplicateLevel,
@@ -55,6 +63,9 @@ type Notice = {
 };
 type StatusFilter = "all" | TitleStatus;
 type DuplicateFilter = "all" | DuplicateLevel;
+type DeleteTarget =
+  | { kind: "title"; candidate: TitleCandidate }
+  | { kind: "folder"; folder: EditorialFolderGroup };
 
 const selectClass =
   "h-10 rounded-lg border border-input bg-card px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
@@ -102,6 +113,8 @@ export function TitleWorkspace() {
     null,
   );
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const owner = user?.displayName ?? "Usuario autorizado";
   const selected =
@@ -127,6 +140,7 @@ export function TitleWorkspace() {
           selectedPermissionClientId,
         )
       : false,
+    canDelete: Boolean(user?.tenantPermissions.includes("titles.delete")),
   };
   const canSharePackages = hasClientPermission(
     user,
@@ -136,6 +150,9 @@ export function TitleWorkspace() {
   const canRevisePackages =
     hasClientPermission(user, "ai.generate", clientId) &&
     hasClientPermission(user, "titles.edit", clientId);
+  const canDeleteTitles = Boolean(
+    user?.tenantPermissions.includes("titles.delete"),
+  );
   const hasActiveEvaluations = candidates.some((candidate) =>
     ["QUEUED", "RUNNING"].includes(candidate.evaluationStatus ?? ""),
   );
@@ -344,7 +361,8 @@ export function TitleWorkspace() {
       setNotice({
         tone: action === "approve" ? "success" : "warning",
         title: actionLabel,
-        description: "La decisión y su motivo quedaron registrados correctamente.",
+        description:
+          "La decisión y su motivo quedaron registrados correctamente.",
       });
     } catch (error) {
       showError("No se pudo registrar la decisión", error);
@@ -527,6 +545,43 @@ export function TitleWorkspace() {
 
   const showError = (title: string, error: unknown) => {
     setNotice({ tone: "warning", title, description: messageFrom(error) });
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      if (deleteTarget.kind === "title") {
+        await apiFetch(`titles/${deleteTarget.candidate.id}`, {
+          method: "DELETE",
+        });
+      } else {
+        await apiFetch("titles/folders", {
+          method: "DELETE",
+          body: JSON.stringify({
+            clientId: deleteTarget.folder.clientId,
+            folderKey: deleteTarget.folder.key,
+          }),
+        });
+      }
+      setDetailOpen(false);
+      setSelectedId(null);
+      setDeleteTarget(null);
+      await fetchTitles(clientId);
+      setNotice({
+        tone: "success",
+        title:
+          deleteTarget.kind === "title"
+            ? "Título eliminado"
+            : "Expediente eliminado",
+        description:
+          "La eliminación quedó registrada en la bitácora administrativa.",
+      });
+    } catch (error) {
+      showError("No se pudo eliminar", error);
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const clearFilters = () => {
@@ -749,6 +804,10 @@ export function TitleWorkspace() {
           onSelect={(candidate) => void selectCandidate(candidate)}
           onSharePackage={setReviewPackage}
           onRevisePackage={(group) => void revisePackage(group)}
+          canDelete={canDeleteTitles}
+          onDeleteFolder={(folder) =>
+            setDeleteTarget({ kind: "folder", folder })
+          }
         />
       )}
 
@@ -761,8 +820,47 @@ export function TitleWorkspace() {
         onEdit={editTitle}
         onResolveDuplicate={resolveDuplicate}
         onShare={(candidate) => setReviewTitleId(candidate.id)}
+        onDelete={(candidate) => setDeleteTarget({ kind: "title", candidate })}
         permissions={selectedPermissions}
       />
+      <Dialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(open) => {
+          if (!open && !deleting) setDeleteTarget(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>¿Estás seguro de eliminar?</DialogTitle>
+            <DialogDescription>
+              {deleteTarget?.kind === "folder"
+                ? `Se eliminarán ${deleteTarget.folder.candidates.length} títulos, sus versiones, evaluaciones y enlaces de revisión del expediente “${deleteTarget.folder.topic}”.`
+                : `Se eliminará “${deleteTarget?.candidate.title ?? "este título"}” junto con su historial de evaluación.`}
+            </DialogDescription>
+          </DialogHeader>
+          <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
+            Si algún título ya tiene una nota, I HERE bloqueará la operación.
+            Primero debes eliminar esa nota desde su expediente.
+          </p>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setDeleteTarget(null)}
+              disabled={deleting}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => void confirmDelete()}
+              disabled={deleting}
+            >
+              {deleting ? <LoaderCircle className="animate-spin" /> : null}
+              Sí, eliminar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       {reviewTitleId ? (
         <ReviewLinkDialog
           kind="title"

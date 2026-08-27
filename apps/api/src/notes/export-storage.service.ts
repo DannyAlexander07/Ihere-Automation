@@ -37,6 +37,14 @@ export class ExportStorageService {
     }
   }
 
+  async remove(storageKey: string): Promise<void> {
+    await rm(this.safePath(storageKey), { force: true });
+  }
+
+  async removeMany(storageKeys: string[]): Promise<void> {
+    await Promise.all(storageKeys.map((storageKey) => this.remove(storageKey)));
+  }
+
   hash(buffer: Buffer): string {
     return createHash('sha256').update(buffer).digest('hex');
   }

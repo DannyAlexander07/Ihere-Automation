@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   ParseUUIDPipe,
@@ -12,7 +13,9 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import type { AuthPrincipal } from '../common/auth/auth-principal';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { RequirePermissions } from '../common/decorators/permissions.decorator';
+import { RequireTenantPermissions } from '../common/decorators/tenant-permissions.decorator';
 import { CreateNoteDto } from './dto/create-note.dto';
+import { DeleteNoteFolderDto } from './dto/delete-note-folder.dto';
 import { ListNotesDto } from './dto/list-notes.dto';
 import { UpdateNoteDto } from './dto/update-note.dto';
 import { NoteVersionCommandDto } from './dto/note-version-command.dto';
@@ -31,6 +34,24 @@ export class NotesController {
   @RequirePermissions('notes.read')
   list(@Query() query: ListNotesDto, @CurrentUser() principal: AuthPrincipal) {
     return this.notes.list(query, principal);
+  }
+
+  @Delete('folders')
+  @RequireTenantPermissions('notes.delete')
+  removeFolder(
+    @Body() input: DeleteNoteFolderDto,
+    @CurrentUser() principal: AuthPrincipal,
+  ) {
+    return this.notes.removeFolder(input, principal);
+  }
+
+  @Delete(':id')
+  @RequireTenantPermissions('notes.delete')
+  remove(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() principal: AuthPrincipal,
+  ) {
+    return this.notes.remove(id, principal);
   }
 
   @Get(':id')

@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   ParseUUIDPipe,
@@ -12,7 +13,9 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import type { AuthPrincipal } from '../common/auth/auth-principal';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { RequirePermissions } from '../common/decorators/permissions.decorator';
+import { RequireTenantPermissions } from '../common/decorators/tenant-permissions.decorator';
 import { CreateTitleDto } from './dto/create-title.dto';
+import { DeleteTitleFolderDto } from './dto/delete-title-folder.dto';
 import { ListTitlesDto } from './dto/list-titles.dto';
 import { TitleDecisionDto } from './dto/title-decision.dto';
 import { UpdateTitleDto } from './dto/update-title.dto';
@@ -29,6 +32,24 @@ export class TitlesController {
   @RequirePermissions('titles.read')
   list(@Query() query: ListTitlesDto, @CurrentUser() principal: AuthPrincipal) {
     return this.titles.list(query, principal);
+  }
+
+  @Delete('folders')
+  @RequireTenantPermissions('titles.delete')
+  removeFolder(
+    @Body() input: DeleteTitleFolderDto,
+    @CurrentUser() principal: AuthPrincipal,
+  ) {
+    return this.titles.removeFolder(input, principal);
+  }
+
+  @Delete(':id')
+  @RequireTenantPermissions('titles.delete')
+  remove(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() principal: AuthPrincipal,
+  ) {
+    return this.titles.remove(id, principal);
   }
 
   @Get(':id')

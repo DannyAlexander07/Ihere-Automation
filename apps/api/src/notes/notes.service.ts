@@ -26,6 +26,7 @@ import {
   VersionSource,
 } from '../generated/prisma/client';
 import { CreateNoteDto } from './dto/create-note.dto';
+import { DeleteNoteFolderDto } from './dto/delete-note-folder.dto';
 import { ListNotesDto } from './dto/list-notes.dto';
 import { UpdateNoteDto } from './dto/update-note.dto';
 import { NoteDecisionDto } from './dto/note-decision.dto';
@@ -37,6 +38,7 @@ import { buildEditorialBriefSnapshot } from './editorial-brief';
 import type { UpdateNoteImageProposalDto } from './dto/update-note-image-proposal.dto';
 import type { NoteImageDecisionDto } from './dto/note-image-decision.dto';
 import { resolveEditorialCta } from './editorial-cta';
+import { ExportStorageService } from './export-storage.service';
 
 const editableVersionFields = [
   'title',
@@ -58,6 +60,7 @@ export class NotesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly content: NoteContentService,
+    private readonly exportStorage: ExportStorageService,
   ) {}
 
   async list(query: ListNotesDto, principal: AuthPrincipal) {
@@ -285,6 +288,88 @@ export class NotesService {
       }
       throw error;
     }
+  }
+
+  async remove(id: string, principal: AuthPrincipal) {
+    const note = await this.prisma.noteDocument.findFirst({
+      where: { id, tenantId: principal.tenantId },
+      include: {
+        exports: { select: { id: true, storageKey: true } },
+        generationRuns: { select: { id: true } },
+        qaEvaluations: { select: { id: true } },
+        notePackageItems: { select: { linkId: true } },
+        contentPublications: { select: { id: true, url: true } },
+        versions: {
+          orderBy: { version: 'desc' },
+          take: 1,
+          select: { title: true },
+        },
+      },
+    });
+    if (!note) throw new NotFoundException('Nota no encontrada.');
+    if (note.contentPublications.length) {
+      throw new ConflictException(
+        'La nota ya está vinculada a una publicación. Retira primero ese registro para no perder sus métricas.',
+      );
+    }
+
+    const result = await this.deleteNotes([note], principal, {
+      action: 'automation.note.deleted',
+      entityType: 'note_document',
+      entityId: note.id,
+    });
+    await this.exportStorage.removeMany(result.storageKeys);
+    return {
+      success: true,
+      deletedNotes: 1,
+      deletedExports: result.deletedExports,
+      restoredTitleIds: [note.titleProposalId],
+    };
+  }
+
+  async removeFolder(input: DeleteNoteFolderDto, principal: AuthPrincipal) {
+    const folderKey = input.folderKey.trim();
+    const notes = await this.prisma.noteDocument.findMany({
+      where: {
+        tenantId: principal.tenantId,
+        clientId: input.clientId,
+        titleProposal: { generationRun: { editorialFolderKey: folderKey } },
+      },
+      include: {
+        exports: { select: { id: true, storageKey: true } },
+        generationRuns: { select: { id: true } },
+        qaEvaluations: { select: { id: true } },
+        notePackageItems: { select: { linkId: true } },
+        contentPublications: { select: { id: true, url: true } },
+        versions: {
+          orderBy: { version: 'desc' },
+          take: 1,
+          select: { title: true },
+        },
+      },
+    });
+    if (!notes.length) {
+      throw new NotFoundException('Expediente de notas no encontrado.');
+    }
+    if (notes.some((note) => note.contentPublications.length)) {
+      throw new ConflictException(
+        'El expediente contiene una nota vinculada a una publicación. Retira primero ese registro para no perder sus métricas.',
+      );
+    }
+
+    const result = await this.deleteNotes(notes, principal, {
+      action: 'automation.note_folder.deleted',
+      entityType: 'editorial_note_folder',
+      entityId: folderKey,
+      folderKey,
+    });
+    await this.exportStorage.removeMany(result.storageKeys);
+    return {
+      success: true,
+      deletedNotes: notes.length,
+      deletedExports: result.deletedExports,
+      restoredTitleIds: notes.map((note) => note.titleProposalId),
+    };
   }
 
   async update(id: string, input: UpdateNoteDto, principal: AuthPrincipal) {
@@ -931,6 +1016,143 @@ export class NotesService {
       },
     });
     return proposal;
+  }
+
+  private async deleteNotes(
+    notes: Array<{
+      id: string;
+      tenantId: string;
+      clientId: string;
+      titleProposalId: string;
+      status: NoteStatus;
+      currentVersion: number;
+      exports: Array<{ id: string; storageKey: string | null }>;
+      generationRuns: Array<{ id: string }>;
+      qaEvaluations: Array<{ id: string }>;
+      notePackageItems: Array<{ linkId: string }>;
+      contentPublications: Array<{ id: string; url: string }>;
+      versions: Array<{ title: string }>;
+    }>,
+    principal: AuthPrincipal,
+    audit: {
+      action: string;
+      entityType: string;
+      entityId: string;
+      folderKey?: string;
+    },
+  ) {
+    const noteIds = notes.map((note) => note.id);
+    const titleIds = notes.map((note) => note.titleProposalId);
+    const exportIds = notes.flatMap((note) =>
+      note.exports.map((artifact) => artifact.id),
+    );
+    const storageKeys = notes.flatMap((note) =>
+      note.exports.flatMap((artifact) =>
+        artifact.storageKey ? [artifact.storageKey] : [],
+      ),
+    );
+    const generationRunIds = notes.flatMap((note) =>
+      note.generationRuns.map((run) => run.id),
+    );
+    const qaEvaluationIds = notes.flatMap((note) =>
+      note.qaEvaluations.map((evaluation) => evaluation.id),
+    );
+    const packageLinkIds = [
+      ...new Set(
+        notes.flatMap((note) =>
+          note.notePackageItems.map((item) => item.linkId),
+        ),
+      ),
+    ];
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.auditLog.create({
+        data: {
+          tenantId: principal.tenantId,
+          clientId: notes[0]?.clientId,
+          userId: principal.userId,
+          ...this.auditContext(principal),
+          actorType: AuditActorType.USER,
+          action: audit.action,
+          entityType: audit.entityType,
+          entityId: audit.entityId,
+          before: {
+            folderKey: audit.folderKey,
+            notes: notes.map((note) => ({
+              id: note.id,
+              titleProposalId: note.titleProposalId,
+              title: note.versions[0]?.title,
+              status: note.status,
+              version: note.currentVersion,
+              exportCount: note.exports.length,
+            })),
+          },
+          metadata: {
+            restoredTitleIds: titleIds,
+            deletedExportIds: exportIds,
+          },
+        },
+      });
+
+      const outboxFilters: Prisma.OutboxJobWhereInput[] = [];
+      if (exportIds.length) {
+        outboxFilters.push({
+          aggregateType: 'export_artifact',
+          aggregateId: { in: exportIds },
+        });
+      }
+      if (qaEvaluationIds.length) {
+        outboxFilters.push({
+          aggregateType: 'note_qa_evaluation',
+          aggregateId: { in: qaEvaluationIds },
+        });
+      }
+      if (generationRunIds.length) {
+        outboxFilters.push({
+          aggregateType: 'ai_generation_run',
+          aggregateId: { in: generationRunIds },
+        });
+      }
+      if (outboxFilters.length) {
+        await tx.outboxJob.deleteMany({
+          where: {
+            tenantId: principal.tenantId,
+            OR: outboxFilters,
+          },
+        });
+      }
+      await tx.notePackageReviewItem.deleteMany({
+        where: { noteId: { in: noteIds } },
+      });
+      if (packageLinkIds.length) {
+        await tx.notePackageReviewLink.deleteMany({
+          where: { id: { in: packageLinkIds }, items: { none: {} } },
+        });
+      }
+      if (exportIds.length) {
+        await tx.exportArtifact.deleteMany({
+          where: { id: { in: exportIds } },
+        });
+      }
+      if (generationRunIds.length) {
+        await tx.aiGenerationRun.deleteMany({
+          where: { id: { in: generationRunIds } },
+        });
+      }
+      await tx.noteDocument.deleteMany({
+        where: { id: { in: noteIds }, tenantId: principal.tenantId },
+      });
+      await tx.titleProposal.updateMany({
+        where: {
+          id: { in: titleIds },
+          tenantId: principal.tenantId,
+          status: TitleStatus.USED,
+        },
+        data: { status: TitleStatus.APPROVED },
+      });
+    });
+
+    return { storageKeys, deletedExports: exportIds.length };
   }
 
   private async findOwned(id: string, principal: AuthPrincipal) {

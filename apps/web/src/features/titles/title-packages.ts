@@ -11,6 +11,7 @@ export type TitlePackageGroup = {
 
 export type EditorialFolderGroup = {
   key: string;
+  clientId: string;
   client: string;
   year: number;
   month: number;
@@ -40,8 +41,7 @@ export function groupTitleCandidates(
     });
   }
   return [...groups.values()].toSorted(
-    (a, b) =>
-      timestamp(b.createdAt) - timestamp(a.createdAt),
+    (a, b) => timestamp(b.createdAt) - timestamp(a.createdAt),
   );
 }
 
@@ -51,7 +51,8 @@ export function groupTitleFolders(
   const folders = new Map<string, EditorialFolderGroup>();
   for (const group of groupTitleCandidates(candidates)) {
     const first = group.candidates[0];
-    const key = first.package?.folderKey ?? `manual:${first.client}:${group.id}`;
+    const key =
+      first.package?.folderKey ?? `manual:${first.client}:${group.id}`;
     const current = folders.get(key);
     if (current) {
       current.packages.push(group);
@@ -61,6 +62,7 @@ export function groupTitleFolders(
     const created = new Date(group.createdAt ?? Date.now());
     folders.set(key, {
       key,
+      clientId: first.clientId ?? "",
       client: first.client,
       year: first.package?.year ?? created.getUTCFullYear(),
       month: first.package?.month ?? created.getUTCMonth() + 1,

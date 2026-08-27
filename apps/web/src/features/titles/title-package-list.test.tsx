@@ -6,6 +6,7 @@ import type { TitleCandidate } from "./types";
 function candidate(index: number): TitleCandidate {
   return {
     id: `title-${index}`,
+    clientId: "client-a",
     title: `Título del expediente ${index}`,
     client: "Adecco Perú",
     campaign: "Agosto de 2026",
@@ -55,6 +56,8 @@ describe("TitlePackageList", () => {
         onSelect={vi.fn()}
         onSharePackage={vi.fn()}
         onRevisePackage={vi.fn()}
+        canDelete={false}
+        onDeleteFolder={vi.fn()}
       />,
     );
 
@@ -84,6 +87,8 @@ describe("TitlePackageList", () => {
         onSelect={onSelect}
         onSharePackage={vi.fn()}
         onRevisePackage={vi.fn()}
+        canDelete={false}
+        onDeleteFolder={vi.fn()}
       />,
     );
 
@@ -111,6 +116,35 @@ describe("TitlePackageList", () => {
     );
     expect(onSelect).toHaveBeenCalledWith(
       expect.objectContaining({ id: "title-1" }),
+    );
+  });
+
+  it("muestra la eliminación del expediente solo cuando está autorizada", () => {
+    const onDeleteFolder = vi.fn();
+    render(
+      <TitlePackageList
+        candidates={[candidate(1)]}
+        canShare
+        canRevise
+        revisingPackageId={null}
+        onSelect={vi.fn()}
+        onSharePackage={vi.fn()}
+        onRevisePackage={vi.fn()}
+        canDelete
+        onDeleteFolder={onDeleteFolder}
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: /Eliminar expediente Expediente editorial 1/i,
+      }),
+    );
+    expect(onDeleteFolder).toHaveBeenCalledWith(
+      expect.objectContaining({
+        key: "adecco:2026:1",
+        clientId: "client-a",
+      }),
     );
   });
 });

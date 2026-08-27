@@ -5,12 +5,24 @@ import { TitleDetailSheet } from "./title-detail-sheet";
 
 describe("TitleDetailSheet", () => {
   it.each([
-    ["Título", "Guía práctica para tomar mejores decisiones sobre talento en empresas peruanas"],
-    ["Objetivo editorial", "Nuevo objetivo editorial verificable para la nota."],
+    [
+      "Título",
+      "Guía práctica para tomar mejores decisiones sobre talento en empresas peruanas",
+    ],
+    [
+      "Objetivo editorial",
+      "Nuevo objetivo editorial verificable para la nota.",
+    ],
     ["Público", "Gerencias y equipos de Recursos Humanos"],
-    ["Enfoque", "Criterios prácticos y verificables para la toma de decisiones"],
+    [
+      "Enfoque",
+      "Criterios prácticos y verificables para la toma de decisiones",
+    ],
     ["Oportunidad", "Aportar una herramienta útil y diferenciada."],
-    ["Riesgo a evitar", "No presentar afirmaciones sin respaldo institucional."],
+    [
+      "Riesgo a evitar",
+      "No presentar afirmaciones sin respaldo institucional.",
+    ],
   ])(
     "habilita el guardado al modificar el bloque %s sin exigir un motivo manual",
     (label, value) => {
@@ -27,10 +39,12 @@ describe("TitleDetailSheet", () => {
           onEdit={onEdit}
           onResolveDuplicate={vi.fn()}
           onShare={vi.fn()}
+          onDelete={vi.fn()}
           permissions={{
             canEditAndEvaluate: true,
             canReview: true,
             canShare: true,
+            canDelete: true,
           }}
         />,
       );
@@ -50,16 +64,14 @@ describe("TitleDetailSheet", () => {
       expect(onEdit).toHaveBeenCalledWith(
         candidate.id,
         expect.objectContaining({
-          [
-            {
-              Título: "title",
-              "Objetivo editorial": "objective",
-              Público: "audience",
-              Enfoque: "focus",
-              Oportunidad: "opportunity",
-              "Riesgo a evitar": "risk",
-            }[label]!
-          ]: value,
+          [{
+            Título: "title",
+            "Objetivo editorial": "objective",
+            Público: "audience",
+            Enfoque: "focus",
+            Oportunidad: "opportunity",
+            "Riesgo a evitar": "risk",
+          }[label]!]: value,
         }),
         "one_off",
         "Corrección editorial realizada durante la revisión interna.",
@@ -82,10 +94,12 @@ describe("TitleDetailSheet", () => {
         onEdit={onEdit}
         onResolveDuplicate={vi.fn()}
         onShare={vi.fn()}
+        onDelete={vi.fn()}
         permissions={{
           canEditAndEvaluate: true,
           canReview: true,
           canShare: true,
+          canDelete: true,
         }}
       />,
     );

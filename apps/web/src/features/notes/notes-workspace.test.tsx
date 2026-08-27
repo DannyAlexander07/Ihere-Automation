@@ -16,7 +16,7 @@ vi.mock("@/features/auth/auth-provider", () => ({
     apiFetch: apiFetchMock,
     user: {
       permissions: ["notes.create"],
-      tenantPermissions: [],
+      tenantPermissions: ["notes.delete"],
       clientPermissions: { "client-a": ["notes.create"] },
       clientIds: ["client-a"],
     },
@@ -50,7 +50,12 @@ describe("NotesWorkspace", () => {
     apiFetchMock.mockImplementation((path: string, options?: RequestInit) => {
       if (path === "clients") {
         return Promise.resolve([
-          { id: "client-a", name: "Adecco Perú", slug: "adecco-peru", active: true },
+          {
+            id: "client-a",
+            name: "Adecco Perú",
+            slug: "adecco-peru",
+            active: true,
+          },
         ]);
       }
       if (path.startsWith("notes?") && !options) return Promise.resolve([]);
@@ -82,8 +87,87 @@ describe("NotesWorkspace", () => {
         body: JSON.stringify({ titleProposalId: "title-approved" }),
       }),
     );
-    expect(pushMock).toHaveBeenCalledWith(
-      "/automatizacion/notas/note-created",
+    expect(pushMock).toHaveBeenCalledWith("/automatizacion/notas/note-created");
+  });
+
+  it("confirma la eliminación de una nota y vuelve a cargar la cola", async () => {
+    const persistedNote = {
+      id: "note-1",
+      clientId: "client-a",
+      titleProposalId: "title-approved",
+      status: "DRAFT",
+      currentVersion: 1,
+      clientApprovedCurrentVersion: false,
+      approvedAt: null,
+      createdAt: "2026-08-19T10:00:00.000Z",
+      updatedAt: "2026-08-19T10:00:00.000Z",
+      client: { name: "Adecco Perú", slug: "adecco-peru" },
+      titleProposal: {
+        generationRun: {
+          id: "run-1",
+          campaignYear: 2026,
+          campaignMonth: 8,
+          campaignTopic: "Cobertura operativa",
+          editorialFolderKey: "adecco:2026:8:cobertura",
+          createdAt: "2026-08-19T10:00:00.000Z",
+        },
+      },
+      versions: [
+        {
+          title: "Nota operativa de prueba",
+          metaDescription: null,
+          wordCount: 1200,
+          contentHash: "hash",
+          authorName: null,
+          _count: { sources: 3 },
+        },
+      ],
+      qaEvaluations: [],
+    };
+    let firstLoad = true;
+    apiFetchMock.mockImplementation((path: string, options?: RequestInit) => {
+      if (path === "clients") {
+        return Promise.resolve([
+          {
+            id: "client-a",
+            name: "Adecco Perú",
+            slug: "adecco-peru",
+            active: true,
+          },
+        ]);
+      }
+      if (path.startsWith("notes?") && !options) {
+        const response = firstLoad ? [persistedNote] : [];
+        firstLoad = false;
+        return Promise.resolve(response);
+      }
+      if (path.startsWith("titles?")) return Promise.resolve([approvedTitle]);
+      if (path === "notes/note-1" && options?.method === "DELETE") {
+        return Promise.resolve({ success: true });
+      }
+      return Promise.resolve([]);
+    });
+
+    render(<NotesWorkspace />);
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: /^Cobertura operativa/,
+      }),
+    );
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Eliminar nota Nota operativa de prueba",
+      }),
+    );
+    expect(
+      screen.getByRole("heading", { name: "¿Estás seguro de eliminar?" }),
+    ).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Sí, eliminar" }));
+
+    await waitFor(() =>
+      expect(apiFetchMock).toHaveBeenCalledWith("notes/note-1", {
+        method: "DELETE",
+      }),
     );
   });
 });

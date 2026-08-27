@@ -13,6 +13,7 @@ import {
 import { PrismaService } from '../database/prisma.service';
 import {
   AuditActorType,
+  AiGenerationKind,
   ClientReviewLinkStatus,
   DuplicateResolution,
   Prisma,
@@ -21,6 +22,7 @@ import {
   VersionSource,
 } from '../generated/prisma/client';
 import { CreateTitleDto } from './dto/create-title.dto';
+import { DeleteTitleFolderDto } from './dto/delete-title-folder.dto';
 import { ListTitlesDto } from './dto/list-titles.dto';
 import { TitleDecisionDto } from './dto/title-decision.dto';
 import { UpdateTitleDto } from './dto/update-title.dto';
@@ -259,6 +261,230 @@ export class TitlesService {
       });
       return proposal;
     });
+  }
+
+  async remove(id: string, principal: AuthPrincipal) {
+    const current = await this.prisma.titleProposal.findFirst({
+      where: { id, tenantId: principal.tenantId },
+      include: {
+        note: { select: { id: true } },
+        evaluations: { select: { id: true } },
+        revisionRuns: { select: { id: true } },
+        titlePackageReviewItems: { select: { linkId: true } },
+      },
+    });
+    if (!current) throw new NotFoundException('Título no encontrado.');
+    if (current.note) {
+      throw new ConflictException(
+        'Este título ya tiene una nota. Elimina primero la nota para conservar un flujo trazable.',
+      );
+    }
+
+    const evaluationIds = current.evaluations.map((item) => item.id);
+    const revisionRunIds = current.revisionRuns.map((item) => item.id);
+    const reviewLinkIds = current.titlePackageReviewItems.map(
+      (item) => item.linkId,
+    );
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.auditLog.create({
+        data: {
+          tenantId: principal.tenantId,
+          clientId: current.clientId,
+          userId: principal.userId,
+          ...this.auditContext(principal),
+          actorType: AuditActorType.USER,
+          action: 'automation.title.deleted',
+          entityType: 'title_proposal',
+          entityId: current.id,
+          before: this.snapshot(current),
+        },
+      });
+      await tx.titlePackageReviewItem.deleteMany({
+        where: { proposalId: current.id },
+      });
+      if (reviewLinkIds.length) {
+        await tx.titlePackageReviewLink.deleteMany({
+          where: { id: { in: reviewLinkIds }, items: { none: {} } },
+        });
+      }
+      if (evaluationIds.length || revisionRunIds.length) {
+        await tx.outboxJob.deleteMany({
+          where: {
+            tenantId: principal.tenantId,
+            OR: [
+              ...(evaluationIds.length
+                ? [
+                    {
+                      aggregateType: 'title_evaluation',
+                      aggregateId: { in: evaluationIds },
+                    },
+                  ]
+                : []),
+              ...(revisionRunIds.length
+                ? [
+                    {
+                      aggregateType: 'ai_generation_run',
+                      aggregateId: { in: revisionRunIds },
+                    },
+                  ]
+                : []),
+            ],
+          },
+        });
+      }
+      if (revisionRunIds.length) {
+        await tx.aiGenerationRun.deleteMany({
+          where: { id: { in: revisionRunIds } },
+        });
+      }
+      await tx.titleProposal.delete({ where: { id: current.id } });
+      if (current.generationRunId) {
+        await tx.titlePackageReviewLink.deleteMany({
+          where: {
+            generationRunId: current.generationRunId,
+            items: { none: {} },
+          },
+        });
+        await tx.aiGenerationRun.deleteMany({
+          where: {
+            id: current.generationRunId,
+            titleProposals: { none: {} },
+            notePackageReviewLinks: { none: {} },
+          },
+        });
+      }
+    });
+    return { success: true, restoredTitleId: null };
+  }
+
+  async removeFolder(input: DeleteTitleFolderDto, principal: AuthPrincipal) {
+    const folderKey = input.folderKey.trim();
+    const proposals = await this.prisma.titleProposal.findMany({
+      where: {
+        tenantId: principal.tenantId,
+        clientId: input.clientId,
+        generationRun: { editorialFolderKey: folderKey },
+      },
+      include: {
+        note: { select: { id: true } },
+        evaluations: { select: { id: true } },
+        revisionRuns: { select: { id: true } },
+        titlePackageReviewItems: { select: { linkId: true } },
+      },
+    });
+    if (!proposals.length) {
+      throw new NotFoundException('Expediente de títulos no encontrado.');
+    }
+    if (proposals.some((proposal) => proposal.note)) {
+      throw new ConflictException(
+        'El expediente contiene títulos con notas. Elimina primero esas notas para evitar perder su relación editorial.',
+      );
+    }
+
+    const proposalIds = proposals.map((proposal) => proposal.id);
+    const evaluationIds = proposals.flatMap((proposal) =>
+      proposal.evaluations.map((item) => item.id),
+    );
+    const linkedReviewIds = proposals.flatMap((proposal) =>
+      proposal.titlePackageReviewItems.map((item) => item.linkId),
+    );
+    const runs = await this.prisma.aiGenerationRun.findMany({
+      where: {
+        tenantId: principal.tenantId,
+        clientId: input.clientId,
+        OR: [
+          {
+            editorialFolderKey: folderKey,
+            kind: {
+              in: [
+                AiGenerationKind.TITLE_BRIEF,
+                AiGenerationKind.TITLE_PROPOSALS,
+                AiGenerationKind.TITLE_REVISION,
+              ],
+            },
+          },
+          { titleProposalId: { in: proposalIds } },
+        ],
+      },
+      select: { id: true },
+    });
+    const runIds = runs.map((run) => run.id);
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.auditLog.create({
+        data: {
+          tenantId: principal.tenantId,
+          clientId: input.clientId,
+          userId: principal.userId,
+          ...this.auditContext(principal),
+          actorType: AuditActorType.USER,
+          action: 'automation.title_folder.deleted',
+          entityType: 'editorial_title_folder',
+          entityId: folderKey,
+          before: {
+            folderKey,
+            proposalIds,
+            titleCount: proposalIds.length,
+          },
+        },
+      });
+      if (runIds.length) {
+        await tx.titlePackageReviewLink.deleteMany({
+          where: { generationRunId: { in: runIds } },
+        });
+      }
+      await tx.titlePackageReviewItem.deleteMany({
+        where: { proposalId: { in: proposalIds } },
+      });
+      if (linkedReviewIds.length) {
+        await tx.titlePackageReviewLink.deleteMany({
+          where: { id: { in: linkedReviewIds }, items: { none: {} } },
+        });
+      }
+      if (evaluationIds.length || runIds.length) {
+        await tx.outboxJob.deleteMany({
+          where: {
+            tenantId: principal.tenantId,
+            OR: [
+              ...(evaluationIds.length
+                ? [
+                    {
+                      aggregateType: 'title_evaluation',
+                      aggregateId: { in: evaluationIds },
+                    },
+                  ]
+                : []),
+              ...(runIds.length
+                ? [
+                    {
+                      aggregateType: 'ai_generation_run',
+                      aggregateId: { in: runIds },
+                    },
+                  ]
+                : []),
+            ],
+          },
+        });
+      }
+      await tx.aiGenerationRun.updateMany({
+        where: { titleProposalId: { in: proposalIds } },
+        data: { titleProposalId: null },
+      });
+      await tx.titleProposal.updateMany({
+        where: { id: { in: proposalIds }, tenantId: principal.tenantId },
+        data: { generationRunId: null },
+      });
+      await tx.titleProposal.deleteMany({
+        where: { id: { in: proposalIds }, tenantId: principal.tenantId },
+      });
+      if (runIds.length) {
+        await tx.aiGenerationRun.deleteMany({
+          where: { id: { in: runIds } },
+        });
+      }
+    });
+    return { success: true, deletedTitles: proposalIds.length };
   }
 
   async update(

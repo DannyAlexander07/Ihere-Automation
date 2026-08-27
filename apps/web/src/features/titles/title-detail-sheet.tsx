@@ -15,6 +15,7 @@ import {
   Send,
   ShieldCheck,
   Sparkles,
+  Trash2,
 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -69,10 +70,12 @@ type Props = {
     reason: string,
   ) => void;
   onShare: (candidate: TitleCandidate) => void;
+  onDelete: (candidate: TitleCandidate) => void;
   permissions: {
     canEditAndEvaluate: boolean;
     canReview: boolean;
     canShare: boolean;
+    canDelete: boolean;
   };
 };
 
@@ -83,7 +86,14 @@ const automaticEditorialChangeReason =
   "Corrección editorial realizada durante la revisión interna.";
 
 export function TitleDetailSheet(props: Props) {
-  const { candidate, onDecision, onEdit, onResolveDuplicate, onShare } = props;
+  const {
+    candidate,
+    onDecision,
+    onEdit,
+    onResolveDuplicate,
+    onShare,
+    onDelete,
+  } = props;
   return (
     <Sheet open={props.open} onOpenChange={props.onOpenChange}>
       <SheetContent
@@ -99,6 +109,7 @@ export function TitleDetailSheet(props: Props) {
             onEdit={onEdit}
             onResolveDuplicate={onResolveDuplicate}
             onShare={onShare}
+            onDelete={onDelete}
             permissions={props.permissions}
             busy={props.busy}
           />
@@ -114,6 +125,7 @@ function TitleDetailBody({
   onEdit,
   onResolveDuplicate,
   onShare,
+  onDelete,
   permissions,
   busy = false,
 }: Omit<Props, "candidate" | "open" | "onOpenChange"> & {
@@ -166,8 +178,7 @@ function TitleDetailBody({
     (correctionType !== "permanent_preference" || confirmedPermanent);
 
   const saveEdit = () => {
-    const changeReason =
-      reason.trim() || automaticEditorialChangeReason;
+    const changeReason = reason.trim() || automaticEditorialChangeReason;
     onEdit(
       candidate.id,
       {
@@ -702,6 +713,17 @@ function TitleDetailBody({
           <Send />
           Enviar a Adecco
         </Button>
+        {permissions.canDelete && candidate.status !== "used" ? (
+          <Button
+            variant="outline"
+            className="text-destructive hover:bg-destructive/10 hover:text-destructive sm:col-span-3"
+            onClick={() => onDelete(candidate)}
+            disabled={busy}
+          >
+            <Trash2 />
+            Eliminar título
+          </Button>
+        ) : null}
       </SheetFooter>
     </>
   );

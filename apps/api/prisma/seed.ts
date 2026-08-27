@@ -30,6 +30,7 @@ const permissions = [
   ['titles.review', 'Rechazar, solicitar cambios y resolver duplicidad'],
   ['titles.approve', 'Aprobar títulos evaluados'],
   ['titles.publish', 'Marcar títulos aprobados como utilizados'],
+  ['titles.delete', 'Eliminar títulos y expedientes editoriales sin notas'],
   ['audit.read', 'Consultar la bitácora de auditoría'],
   ['notes.read', 'Ver notas y versiones habilitadas'],
   ['notes.create', 'Crear una nota desde un título aprobado'],
@@ -37,6 +38,10 @@ const permissions = [
   ['notes.qa', 'Solicitar y revisar QA de notas'],
   ['notes.review', 'Solicitar cambios o rechazar notas'],
   ['notes.approve', 'Aprobar versiones de notas'],
+  [
+    'notes.delete',
+    'Eliminar notas y expedientes sin publicación ni entregables',
+  ],
   ['notes.export', 'Generar y descargar entregables'],
   ['notes.export_html', 'Generar, revisar y descargar el código HTML final'],
   ['ai.read', 'Consultar ejecuciones inteligentes autorizadas'],

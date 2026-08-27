@@ -16,6 +16,7 @@ import {
   PackageCheck,
   RefreshCw,
   Send,
+  Trash2,
   UserRound,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -39,6 +40,8 @@ type Props = {
   onSelect: (candidate: TitleCandidate) => void;
   onSharePackage: (group: TitlePackageGroup) => void;
   onRevisePackage: (group: TitlePackageGroup) => void;
+  canDelete: boolean;
+  onDeleteFolder: (folder: EditorialFolderGroup) => void;
 };
 
 const dateTime = new Intl.DateTimeFormat("es-PE", {
@@ -54,11 +57,14 @@ export function TitlePackageList({
   onSelect,
   onSharePackage,
   onRevisePackage,
+  canDelete,
+  onDeleteFolder,
 }: Props) {
   const folders = useMemo(() => groupTitleFolders(candidates), [candidates]);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [view, setView] = useState<"grid" | "list">("grid");
-  const [previewPackage, setPreviewPackage] = useState<TitlePackageGroup | null>(null);
+  const [previewPackage, setPreviewPackage] =
+    useState<TitlePackageGroup | null>(null);
   const selected = folders.find((folder) => folder.key === selectedKey) ?? null;
 
   if (!folders.length) return <TitleList candidates={[]} onSelect={onSelect} />;
@@ -114,6 +120,8 @@ export function TitlePackageList({
           folders={folders}
           view={view}
           onOpen={setSelectedKey}
+          canDelete={canDelete}
+          onDelete={onDeleteFolder}
         />
       ) : (
         <div className="space-y-4 p-4">
@@ -166,10 +174,14 @@ function FolderDirectory({
   folders,
   view,
   onOpen,
+  canDelete,
+  onDelete,
 }: {
   folders: EditorialFolderGroup[];
   view: "grid" | "list";
   onOpen: (key: string) => void;
+  canDelete: boolean;
+  onDelete: (folder: EditorialFolderGroup) => void;
 }) {
   const pageSize = 6;
   const [page, setPage] = useState(1);
@@ -202,17 +214,19 @@ function FolderDirectory({
             Math.round((approved / Math.max(approvalTarget, 1)) * 100),
           );
           return (
-            <button
+            <div
               key={folder.key}
-              type="button"
-              onClick={() => onOpen(folder.key)}
-              className={`group text-left transition hover:bg-secondary/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+              className={`group relative text-left transition hover:bg-secondary/45 focus-within:ring-2 focus-within:ring-ring ${
                 view === "grid"
                   ? "rounded-2xl border bg-background p-4 shadow-sm hover:-translate-y-0.5 hover:shadow-md"
                   : "flex w-full items-center gap-4 px-4 py-3"
               }`}
             >
-              <span className={view === "grid" ? "block" : "min-w-0 flex-1"}>
+              <button
+                type="button"
+                onClick={() => onOpen(folder.key)}
+                className={`${view === "grid" ? "block w-full" : "min-w-0 flex-1"} text-left focus-visible:outline-none`}
+              >
                 <span className="flex min-w-0 items-start gap-3">
                   <span className="relative grid size-14 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-secondary to-accent/70 text-primary ring-1 ring-border">
                     <Folder className="size-8 fill-primary/15" />
@@ -246,11 +260,27 @@ function FolderDirectory({
                     style={{ width: `${progress}%` }}
                   />
                 </span>
-              </span>
+              </button>
+              {canDelete ? (
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  className={
+                    view === "grid"
+                      ? "absolute right-3 top-3 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      : "text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  }
+                  onClick={() => onDelete(folder)}
+                  aria-label={`Eliminar expediente ${folder.topic}`}
+                >
+                  <Trash2 />
+                </Button>
+              ) : null}
               {view === "list" ? (
                 <ChevronRight className="size-4 text-muted-foreground" />
               ) : null}
-            </button>
+            </div>
           );
         })}
       </div>
@@ -364,7 +394,8 @@ function PackageCard({
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={() => onPreview(group)}>
-            <Eye />Vista previa interna
+            <Eye />
+            Vista previa interna
           </Button>
           {observed.length && !packageComplete ? (
             <Button
