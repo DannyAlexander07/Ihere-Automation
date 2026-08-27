@@ -8,6 +8,11 @@ import {
 } from '../generated/prisma/client';
 import { NoteContentService } from './note-content.service';
 import { stripTrackingParameters } from '../common/url-hygiene';
+import {
+  ADECCO_CLIENT_SLUG,
+  ADECCO_CONTACT_URL,
+  isAdeccoSpecialistCta,
+} from './editorial-cta';
 
 type QaVersion = Pick<
   NoteVersion,
@@ -38,7 +43,7 @@ type DimensionResult = {
 export class NoteQaRulesService {
   constructor(private readonly contentService: NoteContentService) {}
 
-  evaluate(version: QaVersion) {
+  evaluate(version: QaVersion, context?: { clientSlug?: string }) {
     const content = version.content as Record<string, unknown>;
     const blocks = Array.isArray(content.blocks)
       ? (content.blocks as Array<Record<string, unknown>>)
@@ -129,6 +134,11 @@ export class NoteQaRulesService {
       ...(version.ctaUrl ? [version.ctaUrl] : []),
       ...rawBodyUrls,
     ].filter((url) => this.hasTrackingParameter(url)).length;
+    const clientSlug = context?.clientSlug ?? '';
+    const requiresAdeccoCta = clientSlug === ADECCO_CLIENT_SLUG;
+    const hasValidCta = requiresAdeccoCta
+      ? isAdeccoSpecialistCta(clientSlug, version)
+      : Boolean(version.ctaText) && Boolean(version.ctaUrl);
     const hasPlaceholder =
       /\b(lorem|tbd|xxx|pendiente(?: de)? confirmar|completar luego|por definir|insertar aquí)\b/i.test(
         `${allText} ${version.metaTitle ?? ''} ${version.metaDescription ?? ''}`,
@@ -334,18 +344,38 @@ export class NoteQaRulesService {
       ),
       this.dimension(
         NoteQaDimension.ACTION_ORIENTATION,
-        this.points(Boolean(version.ctaText), 5, 0) +
-          this.points(Boolean(version.ctaUrl), 3, 0) +
+        this.points(
+          requiresAdeccoCta ? hasValidCta : Boolean(version.ctaText),
+          5,
+          0,
+        ) +
+          this.points(
+            requiresAdeccoCta ? hasValidCta : Boolean(version.ctaUrl),
+            3,
+            0,
+          ) +
           this.points(hasList, 2, 0),
         10,
         'CTA útil y proporcional a la intención.',
         [
-          version.ctaText ? 'CTA definido' : 'Falta CTA',
-          version.ctaUrl ? 'CTA enlazado' : 'Falta enlace del CTA',
+          requiresAdeccoCta
+            ? hasValidCta
+              ? 'CTA de contacto con especialista validado'
+              : 'El CTA no cumple la regla de contacto de Adecco'
+            : version.ctaText
+              ? 'CTA definido'
+              : 'Falta CTA',
+          requiresAdeccoCta
+            ? `Destino requerido: ${ADECCO_CONTACT_URL}`
+            : version.ctaUrl
+              ? 'CTA enlazado'
+              : 'Falta enlace del CTA',
         ],
         {
           hasCtaText: Boolean(version.ctaText),
           hasCtaUrl: Boolean(version.ctaUrl),
+          requiresAdeccoCta,
+          hasValidCta,
         },
       ),
       this.dimension(
@@ -367,6 +397,11 @@ export class NoteQaRulesService {
     ];
 
     const criticalBlockers = [
+      ...(requiresAdeccoCta && !hasValidCta
+        ? [
+            `El CTA de Adecco debe invitar a contactar a un especialista y enlazar a ${ADECCO_CONTACT_URL}.`,
+          ]
+        : []),
       ...(wordCount < 700
         ? [
             'El contenido tiene menos de 700 palabras útiles y no alcanza la profundidad editorial mínima de este flujo.',

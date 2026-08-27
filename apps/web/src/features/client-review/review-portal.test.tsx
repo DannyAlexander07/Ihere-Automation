@@ -37,7 +37,7 @@ const review: PublicReview = {
     authorName: "Adecco Perú",
     authorRole: "Equipo editorial",
     ctaText: "Conversa con un especialista.",
-    ctaUrl: "https://www.adecco.com/es-pe/contacto",
+    ctaUrl: "https://www.adecco.com/es-pe/contactanos",
     internalLinks: ["https://www.adecco.com/es-pe/blog"],
     sources: [
       {
@@ -74,8 +74,8 @@ describe("ReviewPortal", () => {
     expect(screen.getByText("Versión 2")).toBeInTheDocument();
     expect(screen.getByText("retencion-de-talento")).toBeInTheDocument();
     expect(
-      screen.getByRole("link", { name: /Abrir destino del CTA/ }),
-    ).toHaveAttribute("href", "https://www.adecco.com/es-pe/contacto");
+      screen.getByRole("link", { name: /Contacta a un especialista/ }),
+    ).toHaveAttribute("href", "https://www.adecco.com/es-pe/contactanos");
     expect(
       screen.getByRole("link", { name: /Fuente oficial/ }),
     ).toHaveAttribute("href", "https://example.com/fuente");

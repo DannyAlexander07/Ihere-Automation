@@ -36,6 +36,7 @@ import { canCreateNoteRevision, canQueueNoteQa } from './note-revision-policy';
 import { buildEditorialBriefSnapshot } from './editorial-brief';
 import type { UpdateNoteImageProposalDto } from './dto/update-note-image-proposal.dto';
 import type { NoteImageDecisionDto } from './dto/note-image-decision.dto';
+import { resolveEditorialCta } from './editorial-cta';
 
 const editableVersionFields = [
   'title',
@@ -291,6 +292,7 @@ export class NotesService {
     const current = await this.prisma.noteDocument.findFirst({
       where: { id, tenantId: principal.tenantId },
       include: {
+        client: { select: { slug: true } },
         versions: {
           orderBy: { version: 'desc' },
           take: 1,
@@ -325,6 +327,10 @@ export class NotesService {
       cleanInput.content ?? (previous.content as Record<string, unknown>);
     const validatedContent = this.content.validate(content);
     const nextVersion = current.currentVersion + 1;
+    const resolvedCta = resolveEditorialCta(current.client.slug, {
+      ctaText: cleanInput.ctaText ?? previous.ctaText,
+      ctaUrl: cleanInput.ctaUrl ?? previous.ctaUrl,
+    });
     const next = {
       title: cleanInput.title ?? previous.title,
       metaTitle: cleanInput.metaTitle ?? previous.metaTitle,
@@ -334,8 +340,8 @@ export class NotesService {
       content: validatedContent,
       authorName: cleanInput.authorName ?? previous.authorName,
       authorRole: cleanInput.authorRole ?? previous.authorRole,
-      ctaText: cleanInput.ctaText ?? previous.ctaText,
-      ctaUrl: cleanInput.ctaUrl ?? previous.ctaUrl,
+      ctaText: resolvedCta.ctaText,
+      ctaUrl: resolvedCta.ctaUrl,
       internalLinks:
         cleanInput.internalLinks ??
         (Array.isArray(previous.internalLinks)
@@ -344,9 +350,15 @@ export class NotesService {
             )
           : []),
     };
-    const changed = provided.some(
-      (field) =>
-        JSON.stringify(cleanInput[field]) !==
+    const changed = provided.some((field) => {
+      const candidate =
+        field === 'ctaText'
+          ? next.ctaText
+          : field === 'ctaUrl'
+            ? next.ctaUrl
+            : cleanInput[field];
+      return (
+        JSON.stringify(candidate) !==
         JSON.stringify(
           field === 'sources'
             ? previous.sources.map((source) => ({
@@ -358,8 +370,9 @@ export class NotesService {
                 accessedAt: source.accessedAt,
               }))
             : previous[field],
-        ),
-    );
+        )
+      );
+    });
     if (!changed)
       throw new BadRequestException(
         'Los valores enviados no contienen cambios.',

@@ -20,6 +20,7 @@ import {
 import { TITLE_EVALUATION_JOB } from '../titles/title-evaluation-queue.service';
 import { NOTE_QA_JOB } from '../notes/note-qa-queue.service';
 import { NoteContentService } from '../notes/note-content.service';
+import { resolveEditorialCta } from '../notes/editorial-cta';
 import {
   stripTrackedUrlsFromValue,
   stripTrackingParameters,
@@ -950,6 +951,17 @@ export class AiGenerationProcessorService {
     const baseVersion = run.baseVersion;
     const cleanDraft = stripTrackedUrlsFromValue(audit.revisedDraft);
     const validatedContent = this.content.validate(cleanDraft.content);
+    const client = await this.prisma.client.findUnique({
+      where: { id: run.clientId },
+      select: { slug: true },
+    });
+    if (!client) throw new Error('El cliente de la nota no existe.');
+    const resolvedCta = resolveEditorialCta(client.slug, {
+      ctaText: cleanDraft.ctaText,
+      ctaUrl: cleanDraft.ctaUrl
+        ? stripTrackingParameters(cleanDraft.ctaUrl)
+        : null,
+    });
     const cleanCitations = [
       ...new Map(
         research.citations.map((source) => {
@@ -1024,10 +1036,8 @@ export class AiGenerationProcessorService {
           : `Borrador generado por flujo controlado ${run.id}.`,
         authorName: cleanDraft.authorName,
         authorRole: cleanDraft.authorRole,
-        ctaText: cleanDraft.ctaText,
-        ctaUrl: cleanDraft.ctaUrl
-          ? stripTrackingParameters(cleanDraft.ctaUrl)
-          : null,
+        ctaText: resolvedCta.ctaText,
+        ctaUrl: resolvedCta.ctaUrl,
         internalLinks: [
           ...new Set(
             cleanDraft.internalLinks.map((url) => stripTrackingParameters(url)),
@@ -1460,7 +1470,8 @@ export class AiGenerationProcessorService {
       'Aplica literalmente las reglas activas del cliente durante toda la nota, en especial la terminología de servicios, la voz de marca y el equilibrio entre tecnología y criterio humano; un descargo aislado al final no corrige un enfoque contrario a la marca.',
       'Usa únicamente los hechos y URLs contenidos en la investigación proporcionada; no inventes datos, enlaces, especialistas ni experiencia interna del cliente.',
       'Incluye referencias naturales cerca de la afirmación que respaldan y selecciona en sourceUrlsUsed solo URLs exactas de la investigación.',
-      'Devuelve ctaUrl e internalLinks usando solo URLs exactas presentes en la investigación; si no existe una URL pertinente, usa null y una lista vacía. En una corrección conserva los enlaces ya verificados de currentDraft salvo que la observación pida cambiarlos.',
+      'Devuelve internalLinks usando solo URLs exactas presentes en la investigación; si no existe una URL pertinente, usa una lista vacía. En una corrección conserva los enlaces ya verificados de currentDraft salvo que la observación pida cambiarlos.',
+      'Para Adecco Perú, el CTA final debe invitar explícitamente a contactar a un especialista y ctaUrl debe ser exactamente https://www.adecco.com/es-pe/contactanos; esta URL institucional está autorizada. Para otros clientes, usa en ctaUrl solo una URL exacta de la investigación o null.',
       'Diferencia con claridad los hechos respaldados, la interpretación editorial y las recomendaciones prácticas. Solo atribuye una metodología, dato o experiencia a Adecco cuando la investigación lo sustente expresamente.',
       'No prometas resultados garantizados ni cumplimiento absoluto. Toda afirmación legal, normativa o de desempeño debe conservar alcance, condiciones y fuente primaria; si la evidencia no basta, omítela o preséntala como un punto que requiere validación humana especializada.',
       'El contenido debe tener normalmente entre 1200 y 1800 palabras cuando la complejidad del tema lo justifique, por exigencia editorial de este flujo y no porque un buscador premie una cantidad fija. Prioriza cobertura real sobre relleno, usa bloques con identificadores únicos, encabezados descriptivos y un CTA prudente sin URL inventada.',

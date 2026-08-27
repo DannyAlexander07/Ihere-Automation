@@ -9,7 +9,7 @@ import {
 import { PrismaService } from '../database/prisma.service';
 import { NoteQaRulesService } from './note-qa-rules.service';
 
-const NOTE_QA_RULE_VERSION = 'note-editorial-rubric-v2';
+const NOTE_QA_RULE_VERSION = 'note-editorial-rubric-v3';
 
 @Injectable()
 export class NoteQaProcessorService {
@@ -23,7 +23,9 @@ export class NoteQaProcessorService {
   async process(evaluationId: string, deadline: number) {
     const evaluation = await this.prisma.noteQaEvaluation.findUnique({
       where: { id: evaluationId },
-      include: { note: true },
+      include: {
+        note: { include: { client: { select: { slug: true } } } },
+      },
     });
     if (!evaluation) throw new Error('La evaluación de nota no existe.');
     if (evaluation.status === EvaluationStatus.COMPLETED) {
@@ -97,7 +99,9 @@ export class NoteQaProcessorService {
     ]);
 
     this.assertWithinDeadline(deadline);
-    const result = this.rules.evaluate(version);
+    const result = this.rules.evaluate(version, {
+      clientSlug: evaluation.note.client.slug,
+    });
     this.assertWithinDeadline(deadline);
     const durationMs = Math.max(0, Date.now() - startedAt);
     const nextStatus =

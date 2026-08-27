@@ -16,6 +16,7 @@ import {
 import PDFDocument from 'pdfkit';
 import { ExportFormat } from '../generated/prisma/client';
 import type { ExportBlock, ExportInput, RenderedExport } from './export-types';
+import { editorialCtaActionLabel } from './editorial-cta';
 
 const colors = {
   blue: '1687E8',
@@ -96,7 +97,7 @@ export class ExportRendererService {
       ${input.authorName ? `<p class="meta"><strong>${escapeHtml(input.authorName)}</strong>${input.authorRole ? ` · ${escapeHtml(input.authorRole)}` : ''}</p>` : ''}
     </header>
     <main>${blocks}</main>
-    ${input.ctaText ? `<aside class="cta"><strong>${escapeHtml(input.ctaText)}</strong>${input.ctaUrl ? `<br><a href="${escapeAttribute(input.ctaUrl)}">Conocer más</a>` : ''}</aside>` : ''}
+    ${input.ctaText ? `<aside class="cta"><strong>${escapeHtml(input.ctaText)}</strong>${input.ctaUrl ? `<br><a href="${escapeAttribute(input.ctaUrl)}">${escapeHtml(editorialCtaActionLabel(input.ctaUrl))}</a>` : ''}</aside>` : ''}
     <section class="references"><h2>Fuentes</h2><ol>${sources || '<li>No se registraron fuentes.</li>'}</ol>${links ? `<h3>Enlaces internos</h3><ul>${links}</ul>` : ''}<p class="meta">Versión ${input.version} · Exportada desde I HERE</p></section>
   </article>
 </body>
@@ -197,7 +198,7 @@ export class ExportRendererService {
             link: input.ctaUrl,
             children: [
               new TextRun({
-                text: 'Conocer más',
+                text: editorialCtaActionLabel(input.ctaUrl),
                 bold: true,
                 color: colors.blue,
                 underline: {},
@@ -535,7 +536,10 @@ export class ExportRendererService {
           .font('Helvetica-Bold')
           .fontSize(10)
           .fillColor('#0B67B2')
-          .text('Conocer más', { link: input.ctaUrl, underline: true });
+          .text(editorialCtaActionLabel(input.ctaUrl), {
+            link: input.ctaUrl,
+            underline: true,
+          });
       document.y = top + height + 14;
     }
     ensurePdfSpace(document, 110);

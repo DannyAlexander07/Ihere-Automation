@@ -27,6 +27,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { apiRequest, ApiError } from "@/lib/api/api-client";
 import type { NoteBlock } from "@/features/notes/types";
+import { editorialCtaActionLabel } from "@/features/notes/editorial-cta";
 
 export type PublicReview = {
   client: { name: string; slug: string };
@@ -304,7 +305,8 @@ export function ReviewPortal({
                     rel="noreferrer"
                     className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-primary underline-offset-4 hover:underline"
                   >
-                    Abrir destino del CTA <ExternalLink className="size-3.5" />
+                    {editorialCtaActionLabel(initialData.content.ctaUrl)}{" "}
+                    <ExternalLink className="size-3.5" />
                   </a>
                 ) : null}
               </div>

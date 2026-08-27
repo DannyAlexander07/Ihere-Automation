@@ -1,6 +1,7 @@
 import { EvaluationVerdict, NoteSourceType } from '../generated/prisma/client';
 import { NoteContentService } from './note-content.service';
 import { NoteQaRulesService } from './note-qa-rules.service';
+import { ADECCO_CONTACT_URL } from './editorial-cta';
 
 type QaInput = Parameters<NoteQaRulesService['evaluate']>[0];
 
@@ -167,6 +168,29 @@ describe('NoteQaRulesService', () => {
         'Se detectaron parámetros de seguimiento en URLs; deben eliminarse antes de compartir o exportar.',
       ]),
     );
+  });
+
+  it('bloquea una nota de Adecco cuyo CTA no dirige a contacto', () => {
+    const result = service.evaluate(completeVersion(), {
+      clientSlug: 'adecco-peru',
+    });
+
+    expect(result.verdict).toBe(EvaluationVerdict.BLOCK);
+    expect(result.criticalBlockers).toContain(
+      `El CTA de Adecco debe invitar a contactar a un especialista y enlazar a ${ADECCO_CONTACT_URL}.`,
+    );
+  });
+
+  it('aprueba el CTA oficial de contacto de Adecco', () => {
+    const version = completeVersion();
+    version.ctaText =
+      '¿Quieres evaluar este servicio? Contacta a un especialista de Adecco.';
+    version.ctaUrl = ADECCO_CONTACT_URL;
+
+    const result = service.evaluate(version, { clientSlug: 'adecco-peru' });
+
+    expect(result.criticalBlockers).toEqual([]);
+    expect(result.verdict).toBe(EvaluationVerdict.PASS);
   });
 
   function completeVersion(): QaInput {

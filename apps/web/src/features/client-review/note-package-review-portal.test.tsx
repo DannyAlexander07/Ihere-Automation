@@ -14,8 +14,8 @@ const content = (position: number) => ({
   content: { schemaVersion: 1 as const, blocks: [{ id: `p-${position}`, type: "paragraph" as const, text: `Contenido principal ${position}.` }] },
   authorName: "Especialista Adecco",
   authorRole: "Talento",
-  ctaText: "Conversa con Adecco.",
-  ctaUrl: null,
+  ctaText: "Contacta a un especialista de Adecco.",
+  ctaUrl: "https://www.adecco.com/es-pe/contactanos",
   internalLinks: [],
   sources: [{ type: "PRIMARY", title: "Fuente oficial", entity: "Entidad", url: "https://example.com/fuente" }],
   image: { concept: `Concepto visual ${position}`, prompt: `Instrucciones visuales completas para la nota ${position}.`, altText: `Escena laboral ${position}`, caption: null, referenceUrl: null, status: "PROPOSED" },
@@ -42,6 +42,9 @@ describe("NotePackageReviewPortal", () => {
     render(<NotePackageReviewPortal token="token" initialData={review} unavailable={false} />);
     expect(screen.getByText("Nota editorial 1")).toBeInTheDocument();
     expect(screen.getByText("Concepto visual 1")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: /Contacta a un especialista/ }),
+    ).toHaveAttribute("href", "https://www.adecco.com/es-pe/contactanos");
     expect(screen.queryByText("Nota editorial 2")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("tab", { name: /Nota 2/ }));
     expect(screen.getByText("Nota editorial 2")).toBeInTheDocument();

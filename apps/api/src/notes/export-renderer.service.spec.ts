@@ -1,6 +1,7 @@
 import { ExportFormat, NoteSourceType } from '../generated/prisma/client';
 import type { ExportInput } from './export-types';
 import { ExportRendererService } from './export-renderer.service';
+import { ADECCO_CONTACT_URL } from './editorial-cta';
 
 describe('ExportRendererService', () => {
   const service = new ExportRendererService();
@@ -57,6 +58,18 @@ describe('ExportRendererService', () => {
       '<a href="https://example.com/fuente" rel="noopener noreferrer">fuente oficial</a>',
     );
     expect(html).not.toContain('[fuente oficial](');
+  });
+
+  it('presenta el CTA institucional de Adecco con una acción humana', async () => {
+    const rendered = await service.render({
+      ...base,
+      ctaText: 'Contacta a un especialista de Adecco.',
+      ctaUrl: ADECCO_CONTACT_URL,
+      format: ExportFormat.HTML,
+    });
+    const html = rendered.buffer.toString('utf8');
+    expect(html).toContain(`href="${ADECCO_CONTACT_URL}"`);
+    expect(html).toContain('Contacta a un especialista</a>');
   });
 
   it.each([

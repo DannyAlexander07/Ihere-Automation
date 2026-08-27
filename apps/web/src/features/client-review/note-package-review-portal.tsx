@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import type { NoteBlock } from "@/features/notes/types";
+import { editorialCtaActionLabel } from "@/features/notes/editorial-cta";
 import { apiRequest, ApiError } from "@/lib/api/api-client";
 
 type Decision = "APPROVE" | "REQUEST_CHANGES" | "REJECT";
@@ -119,6 +120,7 @@ export function NotePackageReviewPortal({ token, initialData, unavailable }: { t
             {active.content.excerpt ? <p className="mt-3 text-base leading-7 text-muted-foreground">{active.content.excerpt}</p> : null}
             <section className="mt-5 grid gap-3 rounded-xl border bg-muted/20 p-4 text-sm sm:grid-cols-2"><Info label="Título SEO" value={active.content.metaTitle} /><Info label="Slug" value={active.content.slug} /><div className="sm:col-span-2"><Info label="Metadescripción" value={active.content.metaDescription} /></div></section>
             <div className="mt-7 space-y-4">{active.content.content.blocks.map((block) => <ContentBlock key={block.id} block={block} />)}</div>
+            {active.content.ctaText ? <section className="mt-8 rounded-2xl border border-primary/15 bg-secondary/45 p-5"><h3 className="font-semibold">Siguiente paso</h3><p className="mt-1 text-sm leading-6">{active.content.ctaText}</p>{safeUrl(active.content.ctaUrl) ? <a href={safeUrl(active.content.ctaUrl)!} target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-primary underline-offset-4 hover:underline">{editorialCtaActionLabel(active.content.ctaUrl)} <ExternalLink className="size-3.5" /></a> : null}</section> : null}
             {active.content.image ? <ImageProposalCard image={active.content.image} /> : null}
             {active.content.sources.length ? <section className="mt-8 border-t pt-6"><h3 className="font-semibold">Fuentes consultadas</h3><div className="mt-3 grid gap-2 sm:grid-cols-2">{active.content.sources.map((source) => <a key={source.url} href={source.url} target="_blank" rel="noreferrer" className="rounded-xl border p-3 text-sm hover:border-primary/30"><strong className="block break-words">{source.title}</strong><span className="mt-1 block break-all text-xs text-muted-foreground">{source.entity}</span></a>)}</div></section> : null}
           </article>

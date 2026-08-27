@@ -66,6 +66,10 @@ import {
   type NoteVersion,
 } from "./note-history";
 import type { ApiNoteDetail, NoteBlock } from "./types";
+import {
+  ADECCO_CONTACT_URL,
+  editorialCtaActionLabel,
+} from "./editorial-cta";
 
 type SourceForm = {
   id: string;
@@ -217,6 +221,7 @@ export function NoteEditorWorkspace({
     viewingCurrent &&
     canCreateManualRevision &&
     hasClientPermission(user, "notes.edit", note?.clientId ?? "");
+  const isAdeccoNote = note?.client.slug === "adecco-peru";
   const canGenerate =
     viewingCurrent &&
     workflowEditable &&
@@ -1075,7 +1080,12 @@ export function NoteEditorWorkspace({
                     label="URL del CTA"
                     value={visibleForm.ctaUrl}
                     onChange={(value) => updateForm(setForm, "ctaUrl", value)}
-                    disabled={!canSave}
+                    disabled={!canSave || isAdeccoNote}
+                    description={
+                      isAdeccoNote
+                        ? `Destino institucional fijo: ${ADECCO_CONTACT_URL}`
+                        : undefined
+                    }
                     wide
                   />
                   <EditorArea
@@ -1354,7 +1364,7 @@ function NoteArticlePreview({ form }: { form: EditorForm }) {
                 rel="noreferrer noopener"
                 target="_blank"
               >
-                Abrir información relacionada
+                {editorialCtaActionLabel(form.ctaUrl)}
               </a>
             ) : null}
           </aside>
@@ -1675,12 +1685,14 @@ function EditorInput({
   value,
   onChange,
   disabled,
+  description,
   wide = false,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   disabled: boolean;
+  description?: string;
   wide?: boolean;
 }) {
   const id = `field-${label.replace(/\s+/g, "-").toLowerCase()}`;
@@ -1694,6 +1706,11 @@ function EditorInput({
         disabled={disabled}
         className="mt-1.5"
       />
+      {description ? (
+        <p className="mt-1.5 break-words text-xs text-muted-foreground [overflow-wrap:anywhere]">
+          {description}
+        </p>
+      ) : null}
     </div>
   );
 }
