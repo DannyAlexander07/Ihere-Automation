@@ -1500,14 +1500,17 @@ describe('I HERE API (e2e)', () => {
     expect(decided.json()).toMatchObject({ accepted: true });
     const decidedNotes = await prisma.noteDocument.findMany({
       where: { id: { in: notes.map((note) => note.id) } },
-      select: { id: true, status: true },
+      select: { id: true, status: true, approvedAt: true, approvedById: true },
     });
     expect(
       Object.fromEntries(decidedNotes.map((note) => [note.id, note.status])),
     ).toEqual({
-      [notes[0].id]: 'READY_FOR_REVIEW',
+      [notes[0].id]: 'APPROVED',
       [notes[1].id]: 'CHANGES_REQUESTED',
     });
+    const approvedNote = decidedNotes.find((note) => note.id === notes[0].id);
+    expect(approvedNote?.approvedAt).toBeInstanceOf(Date);
+    expect(approvedNote?.approvedById).toBeNull();
     const decidedImages = await prisma.noteImageProposal.findMany({
       where: { noteId: { in: notes.map((note) => note.id) } },
       select: { noteId: true, status: true },
@@ -1918,20 +1921,17 @@ describe('I HERE API (e2e)', () => {
     expect(clientApproved.json()).toMatchObject({
       accepted: true,
       type: 'APPROVE',
+      status: 'APPROVED',
     });
-
-    const approved = await app.inject({
-      method: 'POST',
-      url: `/api/v1/notes/${note.id}/decisions`,
-      headers: authHeaders(),
-      payload: {
-        expectedVersion: 2,
-        type: 'APPROVE',
-        reason: 'Contenido y evidencia revisados por una persona autorizada.',
-      },
+    const approved = await prisma.noteDocument.findUniqueOrThrow({
+      where: { id: note.id },
+      select: { status: true, approvedAt: true, approvedById: true },
     });
-    expect(approved.statusCode).toBe(201);
-    expect(approved.json()).toMatchObject({ note: { status: 'APPROVED' } });
+    expect(approved).toMatchObject({
+      status: 'APPROVED',
+      approvedById: null,
+    });
+    expect(approved.approvedAt).toBeInstanceOf(Date);
 
     const artifacts: Array<{
       id: string;

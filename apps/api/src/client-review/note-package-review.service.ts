@@ -473,6 +473,7 @@ export class NotePackageReviewService {
     }
     return this.prisma.$transaction(
       async (tx) => {
+        const completedAt = new Date();
         const claimed = await tx.notePackageReviewLink.updateMany({
           where: {
             id: link.id,
@@ -499,7 +500,14 @@ export class NotePackageReviewService {
               currentVersion: item.version,
               status: NoteStatus.READY_FOR_REVIEW,
             },
-            data: { status },
+            data: {
+              status,
+              approvedAt:
+                decision.type === ClientReviewDecisionType.APPROVE
+                  ? completedAt
+                  : null,
+              approvedById: null,
+            },
           });
           if (updated.count !== 1) {
             throw new ConflictException(
@@ -530,7 +538,7 @@ export class NotePackageReviewService {
                 decision.reason?.trim() || 'Aprobada junto con la nota.',
               approvedAt:
                 decision.type === ClientReviewDecisionType.APPROVE
-                  ? new Date()
+                  ? completedAt
                   : null,
               approvedById: null,
             },
@@ -579,7 +587,7 @@ export class NotePackageReviewService {
             metadata: { reviewerEmail, ipAddress: context.ipAddress },
           },
         });
-        return { accepted: true, completedAt: new Date(), decisions: results };
+        return { accepted: true, completedAt, decisions: results };
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
     );
@@ -657,7 +665,7 @@ export class NotePackageReviewService {
 
   private statusForDecision(type: ClientReviewDecisionType) {
     return type === ClientReviewDecisionType.APPROVE
-      ? NoteStatus.READY_FOR_REVIEW
+      ? NoteStatus.APPROVED
       : type === ClientReviewDecisionType.REJECT
         ? NoteStatus.REJECTED
         : NoteStatus.CHANGES_REQUESTED;

@@ -409,6 +409,7 @@ export class ClientReviewService {
     }
     return this.prisma.$transaction(
       async (tx) => {
+        const decidedAt = new Date();
         const claimed = await tx.clientReviewLink.updateMany({
           where: {
             id: link.id,
@@ -446,30 +447,36 @@ export class ClientReviewService {
             decisionReason: input.reason.trim(),
             approvedAt:
               input.type === ClientReviewDecisionType.APPROVE
-                ? new Date()
+                ? decidedAt
                 : null,
             approvedById: null,
           },
         });
-        if (input.type !== ClientReviewDecisionType.APPROVE) {
-          const noteClaimed = await tx.noteDocument.updateMany({
-            where: {
-              id: link.noteId,
-              currentVersion: link.version,
-              status: NoteStatus.READY_FOR_REVIEW,
-            },
-            data: {
-              status:
-                input.type === ClientReviewDecisionType.REJECT
-                  ? NoteStatus.REJECTED
-                  : NoteStatus.CHANGES_REQUESTED,
-            },
-          });
-          if (noteClaimed.count !== 1) {
-            throw new ConflictException(
-              'La nota cambió antes de registrar la decisión.',
-            );
-          }
+        const status =
+          input.type === ClientReviewDecisionType.APPROVE
+            ? NoteStatus.APPROVED
+            : input.type === ClientReviewDecisionType.REJECT
+              ? NoteStatus.REJECTED
+              : NoteStatus.CHANGES_REQUESTED;
+        const noteClaimed = await tx.noteDocument.updateMany({
+          where: {
+            id: link.noteId,
+            currentVersion: link.version,
+            status: NoteStatus.READY_FOR_REVIEW,
+          },
+          data: {
+            status,
+            approvedAt:
+              input.type === ClientReviewDecisionType.APPROVE
+                ? decidedAt
+                : null,
+            approvedById: null,
+          },
+        });
+        if (noteClaimed.count !== 1) {
+          throw new ConflictException(
+            'La nota cambió antes de registrar la decisión.',
+          );
         }
         await tx.auditLog.create({
           data: {
@@ -493,6 +500,7 @@ export class ClientReviewService {
         return {
           accepted: true,
           type: decision.type,
+          status,
           createdAt: decision.createdAt,
         };
       },
