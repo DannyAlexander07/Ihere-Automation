@@ -239,10 +239,7 @@ export function ResultsPortal({ data }: { data: PublicResults | null }) {
                   <div className="min-w-0">
                     <p className="flex items-center gap-2 text-sm font-semibold">
                       <FileCheck2 className="size-4 shrink-0 text-emerald-600" />
-                      <span className="line-clamp-2">
-                        {publication.note.versions[0]?.title ??
-                          "Nota publicada"}
-                      </span>
+                      <span className="line-clamp-2">{publication.title}</span>
                     </p>
                     <a
                       href={publication.url}
@@ -342,10 +339,10 @@ function PublicMetric({
   const display = duration
     ? formatDuration(value.current)
     : percent
-    ? `${(value.current * 100).toFixed(1)}%`
-    : decimal
-      ? value.current.toLocaleString("es-PE", { maximumFractionDigits: 1 })
-      : formatNumber(value.current);
+      ? `${(value.current * 100).toFixed(1)}%`
+      : decimal
+        ? value.current.toLocaleString("es-PE", { maximumFractionDigits: 1 })
+        : formatNumber(value.current);
   return (
     <div className="min-w-0 rounded-2xl border bg-white p-3 shadow-card sm:p-4">
       <span className="grid size-8 place-items-center rounded-lg bg-secondary text-primary">
@@ -476,7 +473,8 @@ export function MonthlyPerformanceTable({
           Evolución mensual del blog
         </CardTitle>
         <p className="text-xs leading-5 text-muted-foreground">
-          Comparativo de visibilidad orgánica y consumo de contenidos para las URLs del blog incluidas en el periodo.
+          Comparativo de visibilidad orgánica y consumo de contenidos para las
+          URLs del blog incluidas en el periodo.
         </p>
       </CardHeader>
       <CardContent className="p-0">
@@ -488,7 +486,9 @@ export function MonthlyPerformanceTable({
                 <th className="px-3 py-3 text-right font-semibold">Sesiones</th>
                 <th className="px-3 py-3 text-right font-semibold">Vistas</th>
                 <th className="px-3 py-3 text-right font-semibold">Clics</th>
-                <th className="px-3 py-3 text-right font-semibold">Impresiones</th>
+                <th className="px-3 py-3 text-right font-semibold">
+                  Impresiones
+                </th>
                 <th className="px-3 py-3 text-right font-semibold">CTR</th>
                 <th className="px-4 py-3 text-right font-semibold">Posición</th>
               </tr>
@@ -497,14 +497,29 @@ export function MonthlyPerformanceTable({
               {summary.monthly.map((item) => (
                 <tr key={item.month} className="hover:bg-muted/20">
                   <td className="px-4 py-3 font-semibold capitalize">
-                    {new Date(`${item.month}-01T12:00:00`).toLocaleDateString("es-PE", { month: "long", year: "numeric" })}
+                    {new Date(`${item.month}-01T12:00:00`).toLocaleDateString(
+                      "es-PE",
+                      { month: "long", year: "numeric" },
+                    )}
                   </td>
-                  <td className="px-3 py-3 text-right tabular-nums">{formatNumber(item.sessions)}</td>
-                  <td className="px-3 py-3 text-right tabular-nums">{formatNumber(item.views)}</td>
-                  <td className="px-3 py-3 text-right font-semibold tabular-nums text-primary">{formatNumber(item.clicks)}</td>
-                  <td className="px-3 py-3 text-right tabular-nums">{formatNumber(item.impressions)}</td>
-                  <td className="px-3 py-3 text-right tabular-nums">{(item.ctr * 100).toFixed(2)}%</td>
-                  <td className="px-4 py-3 text-right tabular-nums">{item.position ? item.position.toFixed(1) : "—"}</td>
+                  <td className="px-3 py-3 text-right tabular-nums">
+                    {formatNumber(item.sessions)}
+                  </td>
+                  <td className="px-3 py-3 text-right tabular-nums">
+                    {formatNumber(item.views)}
+                  </td>
+                  <td className="px-3 py-3 text-right font-semibold tabular-nums text-primary">
+                    {formatNumber(item.clicks)}
+                  </td>
+                  <td className="px-3 py-3 text-right tabular-nums">
+                    {formatNumber(item.impressions)}
+                  </td>
+                  <td className="px-3 py-3 text-right tabular-nums">
+                    {(item.ctr * 100).toFixed(2)}%
+                  </td>
+                  <td className="px-4 py-3 text-right tabular-nums">
+                    {item.position ? item.position.toFixed(1) : "—"}
+                  </td>
                 </tr>
               ))}
             </tbody>

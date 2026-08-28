@@ -7,6 +7,8 @@ import {
   CalendarDays,
   Check,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Clipboard,
   Clock3,
   CloudCog,
@@ -66,6 +68,8 @@ type BusyAction =
   | "publication"
   | null;
 
+const PENDING_PUBLICATIONS_PER_PAGE = 6;
+
 export function ResultsDashboard() {
   const { apiFetch, user } = useAuth();
   const [clients, setClients] = useState<AnalyticsClient[]>([]);
@@ -89,12 +93,21 @@ export function ResultsDashboard() {
   const [sources, setSources] = useState<AnalyticsSources | null>(null);
   const [sourcesLoading, setSourcesLoading] = useState(false);
   const [publications, setPublications] = useState<ContentPublication[]>([]);
-  const [publicationNotes, setPublicationNotes] = useState<ApiNoteSummary[]>([]);
+  const [publicationNotes, setPublicationNotes] = useState<ApiNoteSummary[]>(
+    [],
+  );
   const [publicationOpen, setPublicationOpen] = useState(false);
   const [publicationNoteId, setPublicationNoteId] = useState("");
   const [publicationUrl, setPublicationUrl] = useState("");
   const [publishedAt, setPublishedAt] = useState("");
-  const [period, setPeriod] = useState<"7" | "28" | "60" | "90" | "FEB_JUL_2026">("28");
+  const [publicationToConfirm, setPublicationToConfirm] =
+    useState<ContentPublication | null>(null);
+  const [confirmationUrl, setConfirmationUrl] = useState("");
+  const [confirmationDate, setConfirmationDate] = useState("");
+  const [pendingPublicationPage, setPendingPublicationPage] = useState(1);
+  const [period, setPeriod] = useState<
+    "7" | "28" | "60" | "90" | "FEB_JUL_2026"
+  >("28");
   const [publicationMonth, setPublicationMonth] = useState("ALL");
 
   const canManage = hasClientPermission(
@@ -109,8 +122,8 @@ export function ResultsDashboard() {
   );
   const resultsReady = Boolean(
     connection?.connected &&
-      connection.connection?.lastSyncCompletedAt &&
-      (summary?.configured.ga4 || summary?.configured.gsc),
+    connection.connection?.lastSyncCompletedAt &&
+    (summary?.configured.ga4 || summary?.configured.gsc),
   );
   const fetchClientData = useCallback(
     async (clientId: string, includeLinks: boolean) => {
@@ -151,13 +164,51 @@ export function ResultsDashboard() {
   );
 
   const publicationMonths = useMemo(
-    () => [...new Set((summary?.publicationPerformance ?? []).map((item) => publicationMonthKey(item.publishedAt)))].toSorted().reverse(),
+    () =>
+      [
+        ...new Set(
+          (summary?.publicationPerformance ?? []).map((item) =>
+            publicationMonthKey(item.publishedAt),
+          ),
+        ),
+      ]
+        .toSorted()
+        .reverse(),
     [summary],
   );
   const visiblePublicationPerformance = useMemo(
-    () => (summary?.publicationPerformance ?? []).filter((item) => publicationMonth === "ALL" || publicationMonthKey(item.publishedAt) === publicationMonth),
+    () =>
+      (summary?.publicationPerformance ?? []).filter(
+        (item) =>
+          publicationMonth === "ALL" ||
+          publicationMonthKey(item.publishedAt) === publicationMonth,
+      ),
     [publicationMonth, summary],
   );
+  const pendingPublications = useMemo(
+    () =>
+      publications.filter((item) => item.status === "PENDING_CONFIRMATION"),
+    [publications],
+  );
+  const pendingPublicationPages = Math.max(
+    1,
+    Math.ceil(
+      pendingPublications.length / PENDING_PUBLICATIONS_PER_PAGE,
+    ),
+  );
+  const effectivePendingPublicationPage = Math.min(
+    pendingPublicationPage,
+    pendingPublicationPages,
+  );
+  const visiblePendingPublications = useMemo(() => {
+    const first =
+      (effectivePendingPublicationPage - 1) *
+      PENDING_PUBLICATIONS_PER_PAGE;
+    return pendingPublications.slice(
+      first,
+      first + PENDING_PUBLICATIONS_PER_PAGE,
+    );
+  }, [effectivePendingPublicationPage, pendingPublications]);
 
   const applyClientData = useCallback(
     ({
@@ -397,7 +448,9 @@ export function ResultsDashboard() {
 
   const createPublication = async () => {
     if (!publicationNoteId || !publicationUrl.trim() || !publishedAt) {
-      setError("Selecciona la nota, indica su URL real y la fecha de publicación.");
+      setError(
+        "Selecciona la nota, indica su URL real y la fecha de publicación.",
+      );
       return;
     }
     setBusy("publication");
@@ -416,7 +469,9 @@ export function ResultsDashboard() {
       setPublicationNoteId("");
       setPublicationUrl("");
       setPublishedAt("");
-      setNotice("La URL publicada quedó confirmada y entró al seguimiento de 30, 60 y 90 días.");
+      setNotice(
+        "La URL publicada quedó confirmada y entró al seguimiento de 30, 60 y 90 días.",
+      );
       await loadClientData();
     } catch (reason) {
       setError(messageFrom(reason));
@@ -425,15 +480,34 @@ export function ResultsDashboard() {
     }
   };
 
-  const confirmPublication = async (publication: ContentPublication) => {
+  const openPublicationConfirmation = (publication: ContentPublication) => {
+    setPublicationToConfirm(publication);
+    setConfirmationUrl(publication.url);
+    setConfirmationDate(publication.publishedAt.slice(0, 10));
+  };
+
+  const confirmPublication = async () => {
+    if (!publicationToConfirm || !confirmationUrl.trim() || !confirmationDate) {
+      setError("Confirma la URL y la fecha real de publicación.");
+      return;
+    }
     setBusy("publication");
     setError(null);
     try {
-      await apiFetch(`analytics/publications/${publication.id}/confirm`, {
-        method: "PATCH",
-        body: JSON.stringify({}),
-      });
-      setNotice("La URL detectada quedó confirmada para su medición editorial.");
+      await apiFetch(
+        `analytics/publications/${publicationToConfirm.id}/confirm`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({
+            url: confirmationUrl.trim(),
+            publishedAt: confirmationDate,
+          }),
+        },
+      );
+      setPublicationToConfirm(null);
+      setNotice(
+        "La URL y su fecha real quedaron confirmadas para la medición editorial.",
+      );
       await loadClientData();
     } catch (reason) {
       setError(messageFrom(reason));
@@ -460,39 +534,51 @@ export function ResultsDashboard() {
             </p>
           </div>
           <div className="grid min-w-0 gap-2 sm:min-w-[420px] sm:grid-cols-[1fr_150px]">
-          <div className="relative min-w-0">
-            <label
-              htmlFor="analytics-client"
-              className="mb-1.5 block text-xs font-semibold text-muted-foreground"
-            >
-              Cliente
-            </label>
-            <select
-              id="analytics-client"
-              value={selectedClientId}
-              onChange={(event) => setSelectedClientId(event.target.value)}
-              className="h-9 w-full appearance-none rounded-lg border bg-white px-3 pr-9 text-sm font-medium shadow-sm"
-              disabled={!clients.length}
-            >
-              {clients.map((client) => (
-                <option key={client.id} value={client.id}>
-                  {client.name}
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="pointer-events-none absolute bottom-2.5 right-3 size-4 text-muted-foreground" />
-          </div>
-          <div className="relative min-w-0">
-            <label htmlFor="analytics-period" className="mb-1.5 block text-xs font-semibold text-muted-foreground">Periodo</label>
-            <select id="analytics-period" value={period} onChange={(event) => setPeriod(event.target.value as typeof period)} className="h-9 w-full appearance-none rounded-lg border bg-white px-3 pr-9 text-sm font-medium shadow-sm">
-              <option value={7}>7 días</option>
-              <option value={28}>28 días</option>
-              <option value={60}>60 días</option>
-              <option value={90}>90 días</option>
-              <option value="FEB_JUL_2026">Informe feb.–jul. 2026</option>
-            </select>
-            <ChevronDown className="pointer-events-none absolute bottom-2.5 right-3 size-4 text-muted-foreground" />
-          </div>
+            <div className="relative min-w-0">
+              <label
+                htmlFor="analytics-client"
+                className="mb-1.5 block text-xs font-semibold text-muted-foreground"
+              >
+                Cliente
+              </label>
+              <select
+                id="analytics-client"
+                value={selectedClientId}
+                onChange={(event) => setSelectedClientId(event.target.value)}
+                className="h-9 w-full appearance-none rounded-lg border bg-white px-3 pr-9 text-sm font-medium shadow-sm"
+                disabled={!clients.length}
+              >
+                {clients.map((client) => (
+                  <option key={client.id} value={client.id}>
+                    {client.name}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="pointer-events-none absolute bottom-2.5 right-3 size-4 text-muted-foreground" />
+            </div>
+            <div className="relative min-w-0">
+              <label
+                htmlFor="analytics-period"
+                className="mb-1.5 block text-xs font-semibold text-muted-foreground"
+              >
+                Periodo
+              </label>
+              <select
+                id="analytics-period"
+                value={period}
+                onChange={(event) =>
+                  setPeriod(event.target.value as typeof period)
+                }
+                className="h-9 w-full appearance-none rounded-lg border bg-white px-3 pr-9 text-sm font-medium shadow-sm"
+              >
+                <option value={7}>7 días</option>
+                <option value={28}>28 días</option>
+                <option value={60}>60 días</option>
+                <option value={90}>90 días</option>
+                <option value="FEB_JUL_2026">Informe feb.–jul. 2026</option>
+              </select>
+              <ChevronDown className="pointer-events-none absolute bottom-2.5 right-3 size-4 text-muted-foreground" />
+            </div>
           </div>
         </div>
       </section>
@@ -682,7 +768,9 @@ export function ResultsDashboard() {
           <section className="grid gap-4 2xl:grid-cols-[1.4fr_.75fr]">
             <Card className="rounded-2xl shadow-card">
               <CardHeader>
-                <CardTitle>Tendencia de los últimos {summary.period.days} días</CardTitle>
+                <CardTitle>
+                  Tendencia de los últimos {summary.period.days} días
+                </CardTitle>
                 <p className="text-xs text-muted-foreground">
                   Comparación visual de sesiones y clics con escalas
                   independientes.
@@ -816,28 +904,59 @@ export function ResultsDashboard() {
             <Card className="rounded-2xl border-primary/15 shadow-card">
               <CardHeader className="gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <CardTitle className="flex items-center gap-2"><Lightbulb className="size-4 text-amber-500" />Aprendizajes por nota</CardTitle>
-                  <p className="mt-1 text-xs text-muted-foreground">Lecturas orientativas basadas en los datos disponibles; no sustituyen la revisión de indexación, medición ni contexto editorial.</p>
+                  <CardTitle className="flex items-center gap-2">
+                    <Lightbulb className="size-4 text-amber-500" />
+                    Aprendizajes por nota
+                  </CardTitle>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Lecturas orientativas basadas en los datos disponibles; no
+                    sustituyen la revisión de indexación, medición ni contexto
+                    editorial.
+                  </p>
                 </div>
-                <select value={publicationMonth} onChange={(event) => setPublicationMonth(event.target.value)} className="h-9 rounded-lg border bg-white px-3 text-sm" aria-label="Filtrar publicaciones por mes">
+                <select
+                  value={publicationMonth}
+                  onChange={(event) => setPublicationMonth(event.target.value)}
+                  className="h-9 rounded-lg border bg-white px-3 text-sm"
+                  aria-label="Filtrar publicaciones por mes"
+                >
                   <option value="ALL">Todos los meses</option>
-                  {publicationMonths.map((month) => <option key={month} value={month}>{formatMonth(month)}</option>)}
+                  {publicationMonths.map((month) => (
+                    <option key={month} value={month}>
+                      {formatMonth(month)}
+                    </option>
+                  ))}
                 </select>
               </CardHeader>
               <CardContent className="grid gap-3 lg:grid-cols-2">
                 {visiblePublicationPerformance.map((publication) => {
                   const insight = buildArticleInsight(publication);
                   return (
-                    <article key={publication.id} className="rounded-xl border bg-background p-4">
-                      <p className="line-clamp-2 text-sm font-semibold">{publication.note.versions[0]?.title ?? "Nota publicada"}</p>
+                    <article
+                      key={publication.id}
+                      className="rounded-xl border bg-background p-4"
+                    >
+                      <p className="line-clamp-2 text-sm font-semibold">
+                        {publication.title}
+                      </p>
                       <div className="mt-3 rounded-xl bg-secondary/45 p-3">
-                        <p className={`text-xs font-bold ${insight.tone === "opportunity" ? "text-amber-700" : insight.tone === "positive" ? "text-emerald-700" : "text-primary"}`}>{insight.title}</p>
-                        <p className="mt-1 text-xs leading-5 text-muted-foreground">{insight.detail}</p>
+                        <p
+                          className={`text-xs font-bold ${insight.tone === "opportunity" ? "text-amber-700" : insight.tone === "positive" ? "text-emerald-700" : "text-primary"}`}
+                        >
+                          {insight.title}
+                        </p>
+                        <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                          {insight.detail}
+                        </p>
                       </div>
                     </article>
                   );
                 })}
-                {!visiblePublicationPerformance.length ? <div className="lg:col-span-2"><Empty /></div> : null}
+                {!visiblePublicationPerformance.length ? (
+                  <div className="lg:col-span-2">
+                    <Empty />
+                  </div>
+                ) : null}
               </CardContent>
             </Card>
           </section>
@@ -851,8 +970,9 @@ export function ResultsDashboard() {
                     Publicaciones y cortes de 30, 60 y 90 días
                   </CardTitle>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Métricas acumuladas por URL confirmada. Las coincidencias
-                    automáticas nunca se aceptan sin revisión humana.
+                    Las URLs que publique el equipo web se detectan desde GA4 y
+                    Search Console. La fecha inicial se confirma antes de
+                    activar sus cortes acumulados.
                   </p>
                 </div>
                 {canManage ? (
@@ -866,35 +986,85 @@ export function ResultsDashboard() {
                 ) : null}
               </CardHeader>
               <CardContent className="space-y-3">
-                {publications
-                  .filter((item) => item.status === "PENDING_CONFIRMATION")
-                  .map((publication) => (
-                    <div
-                      key={publication.id}
-                      className="flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50 p-3 sm:flex-row sm:items-center sm:justify-between"
-                    >
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold">
-                          {publication.note.versions[0]?.title ?? publication.url}
-                        </p>
-                        <p className="truncate text-xs text-amber-900/75">
-                          Detectada: {publication.url}
-                        </p>
-                      </div>
-                      {canManage ? (
-                        <Button
-                          size="sm"
-                          onClick={() => void confirmPublication(publication)}
-                          disabled={busy === "publication"}
-                        >
-                          <Check />
-                          Confirmar coincidencia
-                        </Button>
-                      ) : (
-                        <Badge variant="outline">Pendiente</Badge>
-                      )}
+                {visiblePendingPublications.map((publication) => (
+                  <div
+                    key={publication.id}
+                    className="flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50 p-3 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold">
+                        {publication.title}
+                      </p>
+                      <p className="truncate text-xs text-amber-900/75">
+                        {publication.noteId
+                          ? "Coincidencia con una nota de I HERE"
+                          : "Publicada externamente por el equipo web"}
+                        : {publication.url}
+                      </p>
+                      <p className="mt-1 text-xs text-amber-900/75">
+                        Primera fecha observada:{" "}
+                        {formatDate(publication.publishedAt)}
+                      </p>
                     </div>
-                  ))}
+                    {canManage ? (
+                      <Button
+                        size="sm"
+                        onClick={() =>
+                          openPublicationConfirmation(publication)
+                        }
+                        disabled={busy === "publication"}
+                      >
+                        <Check />
+                        Revisar fecha y URL
+                      </Button>
+                    ) : (
+                      <Badge variant="outline">Pendiente</Badge>
+                    )}
+                  </div>
+                ))}
+                {pendingPublicationPages > 1 ? (
+                  <div className="flex flex-col gap-2 rounded-xl border bg-muted/25 px-3 py-2 text-xs sm:flex-row sm:items-center sm:justify-between">
+                    <span className="text-muted-foreground">
+                      Mostrando {visiblePendingPublications.length} de{" "}
+                      {pendingPublications.length} URLs pendientes
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          setPendingPublicationPage((current) =>
+                            Math.max(1, current - 1),
+                          )
+                        }
+                        disabled={effectivePendingPublicationPage === 1}
+                        aria-label="Página anterior de publicaciones pendientes"
+                      >
+                        <ChevronLeft />
+                      </Button>
+                      <span className="min-w-16 text-center font-medium">
+                        {effectivePendingPublicationPage} de{" "}
+                        {pendingPublicationPages}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          setPendingPublicationPage((current) =>
+                            Math.min(pendingPublicationPages, current + 1),
+                          )
+                        }
+                        disabled={
+                          effectivePendingPublicationPage ===
+                          pendingPublicationPages
+                        }
+                        aria-label="Página siguiente de publicaciones pendientes"
+                      >
+                        <ChevronRight />
+                      </Button>
+                    </div>
+                  </div>
+                ) : null}
 
                 {visiblePublicationPerformance.map((publication) => (
                   <article
@@ -906,8 +1076,7 @@ export function ResultsDashboard() {
                         <div className="flex flex-wrap items-center gap-2">
                           <FileCheck2 className="size-4 text-emerald-600" />
                           <p className="line-clamp-2 text-sm font-semibold">
-                            {publication.note.versions[0]?.title ??
-                              "Nota publicada"}
+                            {publication.title}
                           </p>
                           <Badge variant="outline">
                             {publication.source === "AUTO_DETECTED"
@@ -963,16 +1132,33 @@ export function ResultsDashboard() {
                               label="Impres."
                               value={milestone.gsc.impressions}
                             />
-                            <MilestoneMetric label="CTR" value={milestone.gsc.ctr} percent />
-                            <MilestoneMetric label="Interacción" value={milestone.ga4.sessions ? milestone.ga4.engagedSessions / milestone.ga4.sessions : 0} percent />
-                            <MilestoneMetric label="Eventos" value={milestone.ga4.keyEvents} />
+                            <MilestoneMetric
+                              label="CTR"
+                              value={milestone.gsc.ctr}
+                              percent
+                            />
+                            <MilestoneMetric
+                              label="Interacción"
+                              value={
+                                milestone.ga4.sessions
+                                  ? milestone.ga4.engagedSessions /
+                                    milestone.ga4.sessions
+                                  : 0
+                              }
+                              percent
+                            />
+                            <MilestoneMetric
+                              label="Eventos"
+                              value={milestone.ga4.keyEvents}
+                            />
                           </div>
                         </div>
                       ))}
                     </div>
                   </article>
                 ))}
-                {!visiblePublicationPerformance.length && !publications.some((item) => item.status === "PENDING_CONFIRMATION") ? (
+                {!visiblePublicationPerformance.length &&
+                !pendingPublications.length ? (
                   <div className="py-8 text-center">
                     <CalendarDays className="mx-auto size-7 text-muted-foreground" />
                     <p className="mt-2 text-sm font-semibold">
@@ -980,7 +1166,7 @@ export function ResultsDashboard() {
                     </p>
                     <p className="mt-1 text-xs text-muted-foreground">
                       Se detectarán al sincronizar o podrán registrarse cuando
-                      Adecco publique una nota exportada.
+                      el equipo web publique una nueva URL del blog.
                     </p>
                   </div>
                 ) : null}
@@ -1096,9 +1282,9 @@ export function ResultsDashboard() {
           <DialogHeader>
             <DialogTitle>Registrar URL publicada</DialogTitle>
             <DialogDescription>
-              Confirma únicamente la dirección real de una nota ya exportada.
-              I HERE consultará las métricas existentes sin modificar GA4,
-              Search Console ni el sitio de Adecco.
+              Confirma únicamente la dirección real de una nota ya exportada. I
+              HERE consultará las métricas existentes sin modificar GA4, Search
+              Console ni el sitio de Adecco.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -1159,6 +1345,85 @@ export function ResultsDashboard() {
                 <Check />
               )}
               Confirmar publicación
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(publicationToConfirm)}
+        onOpenChange={(open) => {
+          if (!open && busy !== "publication") setPublicationToConfirm(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Confirmar artículo detectado</DialogTitle>
+            <DialogDescription>
+              I HERE encontró esta URL en GA4 o Search Console. Revisa la
+              dirección y confirma la fecha real de publicación antes de
+              activar los cortes de 30, 60 y 90 días.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="rounded-xl border bg-muted/35 p-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Artículo
+              </p>
+              <p className="mt-1 text-sm font-semibold leading-5">
+                {publicationToConfirm?.title}
+              </p>
+              <p className="mt-2 text-xs text-muted-foreground">
+                La fecha sugerida corresponde a la primera aparición en los
+                datos disponibles; puede ser posterior a la publicación real.
+              </p>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="confirmation-url">URL pública</Label>
+              <Input
+                id="confirmation-url"
+                type="url"
+                value={confirmationUrl}
+                onChange={(event) => setConfirmationUrl(event.target.value)}
+                autoComplete="off"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="confirmation-date">
+                Fecha real de publicación
+              </Label>
+              <Input
+                id="confirmation-date"
+                type="date"
+                value={confirmationDate}
+                onChange={(event) => setConfirmationDate(event.target.value)}
+                autoComplete="off"
+                max={new Date().toISOString().slice(0, 10)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setPublicationToConfirm(null)}
+              disabled={busy === "publication"}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={() => void confirmPublication()}
+              disabled={
+                busy === "publication" ||
+                !confirmationUrl.trim() ||
+                !confirmationDate
+              }
+            >
+              {busy === "publication" ? (
+                <LoaderCircle className="animate-spin" />
+              ) : (
+                <Check />
+              )}
+              Confirmar seguimiento
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1256,10 +1521,10 @@ function MetricTile({
   const display = duration
     ? formatDuration(value.current)
     : percent
-    ? `${(value.current * 100).toFixed(1)}%`
-    : decimal
-      ? value.current.toLocaleString("es-PE", { maximumFractionDigits: 1 })
-      : formatNumber(value.current);
+      ? `${(value.current * 100).toFixed(1)}%`
+      : decimal
+        ? value.current.toLocaleString("es-PE", { maximumFractionDigits: 1 })
+        : formatNumber(value.current);
   return (
     <div className="min-w-0 rounded-2xl border bg-white p-3 shadow-card">
       <Icon className="size-4 text-primary" />
@@ -1282,7 +1547,15 @@ function MetricTile({
   );
 }
 
-function MilestoneMetric({ label, value, percent = false }: { label: string; value: number; percent?: boolean }) {
+function MilestoneMetric({
+  label,
+  value,
+  percent = false,
+}: {
+  label: string;
+  value: number;
+  percent?: boolean;
+}) {
   return (
     <div className="rounded-lg bg-muted/55 px-2 py-1.5">
       <p className="text-xs font-semibold tabular-nums">
@@ -1336,7 +1609,11 @@ function formatDate(value: string) {
 }
 function formatMonth(value: string) {
   const [year, month] = value.split("-").map(Number);
-  return new Intl.DateTimeFormat("es-PE", { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(Date.UTC(year, month - 1, 1)));
+  return new Intl.DateTimeFormat("es-PE", {
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(Date.UTC(year, month - 1, 1)));
 }
 function messageFrom(error: unknown) {
   return error instanceof ApiError || error instanceof Error

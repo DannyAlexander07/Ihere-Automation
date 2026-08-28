@@ -2,6 +2,7 @@ import { AnalyticsConnectionStatus } from '../generated/prisma/client';
 import {
   buildAnalyticsSummary,
   buildPagePerformance,
+  externalPublicationCandidates,
   metricPersistenceBatches,
 } from './analytics.service';
 
@@ -145,6 +146,7 @@ describe('buildAnalyticsSummary', () => {
       [
         {
           noteId: 'note-1',
+          title: 'Nota creada en I HERE',
           url: 'https://www.adecco.com/es-pe/blog/nota-ihere',
           pagePath: '/es-pe/blog/nota-ihere',
           publishedAt: new Date('2026-07-30T00:00:00.000Z'),
@@ -168,6 +170,49 @@ describe('buildAnalyticsSummary', () => {
       noteId: 'note-1',
       position: 3,
     });
+  });
+
+  it('detecta artículos externos, normaliza acentos y excluye el índice del blog', () => {
+    const candidates = externalPublicationCandidates(
+      'https://www.adecco.com/es-pe/',
+      [
+        ga4(
+          '2026-08-03',
+          '/es-pe/blog/selecci%C3%B3n-especializada?utm_source=correo',
+          5,
+          4,
+          7,
+        ),
+        ga4('2026-08-03', '/es-pe/blog', 30, 20, 40),
+        ga4('2026-08-03', '/es-pe/blog/tag/empleo', 3, 2, 4),
+      ],
+      [
+        gsc(
+          '2026-08-01',
+          'https://www.adecco.com/es-pe/blog/selecci%c3%b3n-especializada?ref=duplicado',
+          'selección especializada',
+          2,
+          40,
+          4,
+        ),
+        gsc(
+          '2026-08-02',
+          'https://otro.example/blog/no-corresponde',
+          'externo',
+          1,
+          10,
+          8,
+        ),
+      ],
+    );
+
+    expect(candidates).toEqual([
+      {
+        url: 'https://www.adecco.com/es-pe/blog/selecci%C3%B3n-especializada',
+        pagePath: '/es-pe/blog/selecci%C3%B3n-especializada',
+        firstSeenAt: new Date('2026-08-01T00:00:00.000Z'),
+      },
+    ]);
   });
 });
 

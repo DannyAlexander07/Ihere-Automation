@@ -80,7 +80,8 @@ export type PagePerformance = {
 export type ContentPublication = {
   id: string;
   clientId: string;
-  noteId: string;
+  noteId: string | null;
+  title: string;
   url: string;
   pagePath: string;
   publishedAt: string;
@@ -91,7 +92,7 @@ export type ContentPublication = {
   note: {
     currentVersion: number;
     versions: Array<{ title: string; slug: string | null }>;
-  };
+  } | null;
 };
 
 export type PublicationPerformance = ContentPublication & {

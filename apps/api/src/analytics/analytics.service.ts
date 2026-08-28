@@ -369,7 +369,14 @@ export class AnalyticsService {
         clientId: input.clientId,
         status: NoteStatus.EXPORTED,
       },
-      select: { id: true },
+      select: {
+        id: true,
+        versions: {
+          orderBy: { version: 'desc' },
+          take: 1,
+          select: { title: true },
+        },
+      },
     });
     if (!note) {
       throw new BadRequestException(
@@ -384,6 +391,7 @@ export class AnalyticsService {
         tenantId: principal.tenantId,
         clientId: input.clientId,
         noteId: note.id,
+        title: note.versions[0]?.title ?? 'Artículo publicado',
         url,
         pagePath: new URL(url).pathname,
         publishedAt,
@@ -395,6 +403,7 @@ export class AnalyticsService {
       },
       update: {
         noteId: note.id,
+        title: note.versions[0]?.title ?? 'Artículo publicado',
         pagePath: new URL(url).pathname,
         publishedAt,
         source: ContentPublicationSource.MANUAL,
@@ -921,49 +930,48 @@ export class AnalyticsService {
       },
       select: {
         id: true,
-        currentVersion: true,
         versions: {
-          select: { slug: true },
+          select: { title: true, slug: true },
           orderBy: { version: 'desc' },
           take: 1,
         },
       },
     });
-    for (const note of notes) {
-      const slug = note.versions[0]?.slug?.trim();
-      if (!slug || slug.length < 5) continue;
-      const gscMatches = gscRows.filter(
-        (row) => row.page !== TOTAL_MARKER && pageContainsSlug(row.page, slug),
-      );
-      const ga4Matches = ga4Rows.filter(
-        (row) =>
-          row.pagePath !== TOTAL_MARKER && pageContainsSlug(row.pagePath, slug),
-      );
-      const gscUrl = gscMatches[0]?.page;
-      const pagePath = gscUrl
-        ? publicationPath(gscUrl)
-        : ga4Matches[0]?.pagePath;
-      if (!pagePath) continue;
-      const url = gscUrl
-        ? normalizedPublicationUrl(gscUrl)
-        : absolutePublicationUrl(pagePath, connection.gscSiteUrl);
-      if (!url) continue;
-      const dates = [...gscMatches, ...ga4Matches].map((row) => row.date);
-      const publishedAt = new Date(
-        Math.min(...dates.map((date) => date.getTime())),
-      );
+    const candidates = externalPublicationCandidates(
+      connection.gscSiteUrl,
+      ga4Rows,
+      gscRows,
+    );
+    for (const candidate of candidates) {
+      const note = notes.find((item) => {
+        const slug = item.versions[0]?.slug?.trim();
+        return Boolean(slug && pageContainsSlug(candidate.pagePath, slug));
+      });
+      const title =
+        note?.versions[0]?.title ?? titleFromPagePath(candidate.pagePath);
       await this.prisma.contentPublication.upsert({
-        where: { clientId_url: { clientId: connection.clientId, url } },
+        where: {
+          clientId_url: {
+            clientId: connection.clientId,
+            url: candidate.url,
+          },
+        },
         create: {
           tenantId: connection.tenantId,
           clientId: connection.clientId,
-          noteId: note.id,
-          url,
-          pagePath,
-          publishedAt,
+          noteId: note?.id,
+          title,
+          url: candidate.url,
+          pagePath: candidate.pagePath,
+          publishedAt: candidate.firstSeenAt,
           source: ContentPublicationSource.AUTO_DETECTED,
         },
-        update: {},
+        update: note
+          ? {
+              noteId: note.id,
+              title,
+            }
+          : {},
       });
     }
   }
@@ -1113,6 +1121,7 @@ const publicationSelect = {
   id: true,
   clientId: true,
   noteId: true,
+  title: true,
   url: true,
   pagePath: true,
   publishedAt: true,
@@ -1183,18 +1192,14 @@ function normalizedPublicationUrl(value: string): string {
   if (!['http:', 'https:'].includes(url.protocol)) {
     throw new BadRequestException('La URL de publicación no es válida.');
   }
+  try {
+    url.pathname = decodeURIComponent(url.pathname);
+  } catch {
+    // Conserva rutas heredadas con escapes no estándar sin perder la medición.
+  }
+  url.search = '';
   url.hash = '';
   return url.toString();
-}
-
-function publicationPath(value: string): string | null {
-  try {
-    const url = new URL(value.trim());
-    if (!['http:', 'https:'].includes(url.protocol)) return null;
-    return url.pathname;
-  } catch {
-    return null;
-  }
 }
 
 function absolutePublicationUrl(
@@ -1221,13 +1226,92 @@ function pageContainsSlug(value: string, slug: string): boolean {
   }
 }
 
+type ExternalPublicationCandidate = {
+  url: string;
+  pagePath: string;
+  firstSeenAt: Date;
+};
+
+export function externalPublicationCandidates(
+  configuredSite: string | null,
+  ga4Rows: Ga4MetricRow[],
+  gscRows: GscMetricRow[],
+): ExternalPublicationCandidate[] {
+  const candidates = new Map<string, ExternalPublicationCandidate>();
+  const include = (value: string, date: Date, preferObservedUrl: boolean) => {
+    if (value === TOTAL_MARKER) return;
+    const pagePath = metricPagePath(value);
+    const normalizedPath = normalizedPagePath(pagePath);
+    if (!isArticleBlogPage(normalizedPath)) return;
+    const observedUrl = /^https?:\/\//i.test(value)
+      ? safePublicationUrl(value)
+      : null;
+    const url = observedUrl ?? absolutePublicationUrl(pagePath, configuredSite);
+    if (!url || !belongsToConfiguredSite(url, configuredSite)) return;
+    const key = normalizedPath.toLocaleLowerCase('es-PE');
+    const current = candidates.get(key);
+    if (!current) {
+      candidates.set(key, {
+        url,
+        pagePath: new URL(url).pathname,
+        firstSeenAt: date,
+      });
+      return;
+    }
+    if (date < current.firstSeenAt) current.firstSeenAt = date;
+    if (preferObservedUrl && observedUrl) {
+      current.url = observedUrl;
+      current.pagePath = new URL(observedUrl).pathname;
+    }
+  };
+
+  for (const row of ga4Rows) include(row.pagePath, row.date, false);
+  for (const row of gscRows) include(row.page, row.date, true);
+  return [...candidates.values()].sort(
+    (left, right) => right.firstSeenAt.getTime() - left.firstSeenAt.getTime(),
+  );
+}
+
+function metricPagePath(value: string): string {
+  try {
+    return new URL(value, 'https://ihere.local').pathname;
+  } catch {
+    return value.split(/[?#]/, 1)[0] || '/';
+  }
+}
+
+function safePublicationUrl(value: string): string | null {
+  try {
+    return normalizedPublicationUrl(value);
+  } catch {
+    return null;
+  }
+}
+
+function belongsToConfiguredSite(
+  publicationUrl: string,
+  configuredSite: string | null,
+): boolean {
+  if (!configuredSite || configuredSite.startsWith('sc-domain:')) return true;
+  try {
+    return (
+      new URL(publicationUrl).hostname === new URL(configuredSite).hostname
+    );
+  } catch {
+    return false;
+  }
+}
+
 function samePage(
   value: string,
   publication: { url: string; pagePath: string },
 ): boolean {
   if (value === publication.url || value === publication.pagePath) return true;
   try {
-    return new URL(value, publication.url).pathname === publication.pagePath;
+    return (
+      normalizedPagePath(new URL(value, publication.url).pathname) ===
+      normalizedPagePath(publication.pagePath)
+    );
   } catch {
     return false;
   }
@@ -1637,11 +1721,12 @@ function topQueries(rows: Parameters<typeof buildAnalyticsSummary>[3]) {
 }
 
 type PublicationForPagePerformance = {
-  noteId: string;
+  noteId: string | null;
+  title: string;
   url: string;
   pagePath: string;
   publishedAt: Date;
-  note: { versions: Array<{ title: string }> };
+  note: { versions: Array<{ title: string }> } | null;
 };
 
 export function buildPagePerformance(
@@ -1700,9 +1785,8 @@ export function buildPagePerformance(
       url:
         publication?.url ??
         absolutePublicationUrl(pagePath, connection?.gscSiteUrl ?? null),
-      title:
-        publication?.note.versions[0]?.title ?? titleFromPagePath(pagePath),
-      source: publication ? 'I_HERE' : 'BLOG_HISTORY',
+      title: publication?.title ?? titleFromPagePath(pagePath),
+      source: publication?.noteId ? 'I_HERE' : 'BLOG_HISTORY',
       noteId: publication?.noteId ?? null,
       publishedAt: publication?.publishedAt ?? null,
       sessions: 0,
@@ -1809,9 +1893,25 @@ function isBlogPage(pagePath: string): boolean {
   return /(^|\/)blog(\/|$)/i.test(pagePath);
 }
 
+function isArticleBlogPage(pagePath: string): boolean {
+  const parts = pagePath.split('/').filter(Boolean);
+  const blogIndex = parts.findIndex((part) => part.toLowerCase() === 'blog');
+  if (blogIndex < 0 || blogIndex === parts.length - 1) return false;
+  return ![
+    'tag',
+    'tags',
+    'category',
+    'author',
+    'search',
+    'page',
+    'feed',
+  ].includes(parts[blogIndex + 1]?.toLowerCase() ?? '');
+}
+
 function titleFromPagePath(pagePath: string): string {
   const slug =
-    pagePath.split('/').filter(Boolean).at(-1) ?? 'Artículo del blog';
+    normalizedPagePath(pagePath).split('/').filter(Boolean).at(-1) ??
+    'Artículo del blog';
   return slug
     .replace(/[-_]+/g, ' ')
     .replace(/\s+/g, ' ')
