@@ -441,6 +441,7 @@ model TitleProposal {
   clientId                String                   @db.Uuid
   title                   String                   @db.VarChar(220)
   canonicalTitle          String                   @db.VarChar(220)
+  service                 String                   @db.VarChar(160)
   slug                    String?                  @db.VarChar(240)
   objective               String                   @db.VarChar(600)
   audience                String                   @db.VarChar(300)
@@ -486,6 +487,7 @@ model TitleVersion {
   proposalId     String             @db.Uuid
   version        Int
   title          String             @db.VarChar(220)
+  service        String             @db.VarChar(160)
   objective      String             @db.VarChar(600)
   audience       String             @db.VarChar(300)
   searchIntent   String             @db.VarChar(300)
@@ -565,8 +567,10 @@ model CorrectionSignal {
   id             String         @id @default(uuid()) @db.Uuid
   tenantId       String         @db.Uuid
   clientId       String         @db.Uuid
-  proposalId     String         @db.Uuid
-  versionId      String         @db.Uuid
+  proposalId     String?        @db.Uuid
+  versionId      String?        @db.Uuid
+  noteId         String?        @db.Uuid
+  noteVersionId  String?        @db.Uuid
   field          String         @db.VarChar(80)
   beforeValue    String         @db.Text
   afterValue     String         @db.Text
@@ -577,13 +581,16 @@ model CorrectionSignal {
   createdAt      DateTime       @default(now()) @db.Timestamptz(3)
   tenant         Tenant         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   client         Client         @relation(fields: [clientId], references: [id], onDelete: Restrict)
-  proposal       TitleProposal  @relation(fields: [proposalId], references: [id], onDelete: Cascade)
-  version        TitleVersion   @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  proposal       TitleProposal? @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  version        TitleVersion?  @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  note           NoteDocument?  @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  noteVersion    NoteVersion?   @relation(fields: [noteVersionId], references: [id], onDelete: Cascade)
   actor          User           @relation(fields: [actorId], references: [id], onDelete: Restrict)
   promotedRule   LearningRule?  @relation(fields: [promotedRuleId], references: [id], onDelete: SetNull)
 
   @@index([tenantId, clientId, correctionType])
   @@index([proposalId, versionId])
+  @@index([noteId, noteVersionId])
 }
 
 model LearningRule {
@@ -593,6 +600,7 @@ model LearningRule {
   code              String             @db.VarChar(100)
   title             String             @db.VarChar(180)
   description       String             @db.Text
+  glossary          Json?
   status            LearningRuleStatus @default(DRAFT)
   evidenceCount     Int                @default(0)
   approvedById      String?            @db.Uuid
@@ -697,6 +705,7 @@ model NoteDocument {
   notePackageItems    NotePackageReviewItem[]
   imageProposals      NoteImageProposal[]
   contentPublications ContentPublication[]
+  correctionSignals   CorrectionSignal[]
 
   @@index([tenantId, clientId, status])
   @@index([clientId, updatedAt])
@@ -729,6 +738,7 @@ model NoteVersion {
   createdBy       User             @relation(fields: [createdById], references: [id], onDelete: Restrict)
   sources         NoteSource[]
   generationRun   AiGenerationRun? @relation(fields: [generationRunId], references: [id], onDelete: SetNull)
+  correctionSignals CorrectionSignal[]
 
   @@unique([noteId, version])
   @@index([noteId, createdAt])

@@ -2,6 +2,7 @@ import type { Prisma } from '../generated/prisma/client';
 
 export type ApprovedTitleContext = {
   id: string;
+  service: string;
   title: string;
   slug: string | null;
   objective: string;
@@ -29,7 +30,7 @@ export function buildEditorialBriefSnapshot(
   ].filter((value): value is string => Boolean(value));
 
   return {
-    briefVersion: 2,
+    briefVersion: 3,
     titleProposalId: title.id,
     approvedAt: title.approvedAt?.toISOString() ?? null,
     titles: {
@@ -93,9 +94,8 @@ export function buildEditorialBriefSnapshot(
       ],
     },
     conversion: {
-      service: null,
-      serviceRequirement:
-        'Seleccionar un servicio oficial de Adecco respaldado por el encargo o por documentación institucional.',
+      service: title.service,
+      serviceRequirement: `Mantener la nota alineada con el servicio aprobado “${title.service}” y usar su denominación oficial.`,
       ctaRequirement:
         'Proponer un CTA proporcional a la intención del lector y vinculado a un servicio real; la URL debe confirmarse, no inventarse.',
       internalLinksRequirement:

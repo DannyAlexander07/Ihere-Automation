@@ -21,6 +21,7 @@ function candidate(
         }
       : undefined,
     title: `Título ${id}`,
+    service: "Training & Consulting",
     client: "Adecco Perú",
     campaign: "agosto de 2026",
     objective: "Objetivo",

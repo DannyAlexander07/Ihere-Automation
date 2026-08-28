@@ -28,6 +28,7 @@ type PackageTitle = {
   proposalId: string;
   version: number;
   content: {
+    service: string;
     title: string;
     objective: string;
     audience: string;
@@ -428,6 +429,7 @@ export function TitlePackageReviewPortal({
                   ["Público", activeTitle.content.audience],
                   ["Intención", activeTitle.content.searchIntent],
                   ["Enfoque", activeTitle.content.focus],
+                  ["Servicio de Adecco", activeTitle.content.service],
                   ["Oportunidad", activeTitle.content.opportunity],
                   ["Riesgo a evitar", activeTitle.content.risk],
                 ].map(([label, value]) => (

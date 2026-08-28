@@ -47,7 +47,8 @@ type Signal = {
   correctionType: string;
   createdAt: string;
   client: { name: string };
-  proposal: { id: string; title: string };
+  proposal: { id: string; title: string } | null;
+  note: { id: string; versions: Array<{ title: string }> } | null;
   actor: { displayName: string };
 };
 
@@ -68,6 +69,13 @@ type Rule = {
     afterValue: string;
     reason: string;
   }>;
+  glossary: {
+    entries: Array<{
+      preferredTerm: string;
+      variants: string[];
+      guidance?: string;
+    }>;
+  } | null;
 };
 
 type PendingRuleChange = {
@@ -90,6 +98,12 @@ export function LearningWorkspace() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [ruleKind, setRuleKind] = useState<"instruction" | "glossary">(
+    "instruction",
+  );
+  const [preferredTerm, setPreferredTerm] = useState("");
+  const [variants, setVariants] = useState("");
+  const [guidance, setGuidance] = useState("");
   const [pendingChange, setPendingChange] = useState<PendingRuleChange | null>(
     null,
   );
@@ -160,7 +174,10 @@ export function LearningWorkspace() {
       !clientId ||
       !selected.length ||
       title.trim().length < 5 ||
-      description.trim().length < 10
+      description.trim().length < 10 ||
+      (ruleKind === "glossary" &&
+        (preferredTerm.trim().length < 2 ||
+          variants.split(",").filter((item) => item.trim()).length === 0))
     )
       return;
     setBusy(true);
@@ -174,11 +191,31 @@ export function LearningWorkspace() {
           title: title.trim(),
           description: description.trim(),
           signalIds: selected,
+          ...(ruleKind === "glossary"
+            ? {
+                glossary: {
+                  entries: [
+                    {
+                      preferredTerm: preferredTerm.trim(),
+                      variants: variants
+                        .split(",")
+                        .map((item) => item.trim())
+                        .filter(Boolean),
+                      ...(guidance.trim() ? { guidance: guidance.trim() } : {}),
+                    },
+                  ],
+                },
+              }
+            : {}),
         }),
       });
       setDialogOpen(false);
       setTitle("");
       setDescription("");
+      setRuleKind("instruction");
+      setPreferredTerm("");
+      setVariants("");
+      setGuidance("");
       setSelected([]);
       await loadData(clientId);
       setNotice(
@@ -346,7 +383,9 @@ export function LearningWorkspace() {
                         <Badge variant="secondary">{signal.field}</Badge>
                       </div>
                       <p className="mt-2 text-sm font-semibold">
-                        {signal.proposal.title}
+                        {signal.proposal?.title ??
+                          signal.note?.versions[0]?.title ??
+                          "Observación editorial del cliente"}
                       </p>
                       <p className="mt-1 text-xs text-muted-foreground">
                         {signal.beforeValue} →{" "}
@@ -398,6 +437,16 @@ export function LearningWorkspace() {
                             : "Retirada"}
                       </Badge>
                     </div>
+                    {rule.glossary?.entries?.length ? (
+                      <div className="mt-3 rounded-lg bg-secondary/45 p-3 text-xs">
+                        {rule.glossary.entries.map((entry) => (
+                          <p key={entry.preferredTerm} className="leading-5">
+                            <strong>{entry.preferredTerm}</strong> reemplaza a{" "}
+                            {entry.variants.join(", ")}
+                          </p>
+                        ))}
+                      </div>
+                    ) : null}
                     <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t pt-3">
                       <span className="text-[10px] text-muted-foreground">
                         {rule.evidenceCount} evidencia(s) · {rule.code}
@@ -464,6 +513,20 @@ export function LearningWorkspace() {
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
+              <Label htmlFor="rule-kind">Tipo de aprendizaje</Label>
+              <select
+                id="rule-kind"
+                value={ruleKind}
+                onChange={(event) =>
+                  setRuleKind(event.target.value as "instruction" | "glossary")
+                }
+                className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm"
+              >
+                <option value="instruction">Criterio editorial</option>
+                <option value="glossary">Terminología y glosario</option>
+              </select>
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="rule-title">Nombre de la regla</Label>
               <Input
                 id="rule-title"
@@ -472,6 +535,41 @@ export function LearningWorkspace() {
                 maxLength={180}
               />
             </div>
+            {ruleKind === "glossary" ? (
+              <div className="grid gap-4 rounded-xl border bg-muted/30 p-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="preferred-term">Término autorizado</Label>
+                  <Input
+                    id="preferred-term"
+                    autoComplete="off"
+                    value={preferredTerm}
+                    onChange={(event) => setPreferredTerm(event.target.value)}
+                    maxLength={160}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="term-variants">
+                    Formas que deben evitarse
+                  </Label>
+                  <Input
+                    id="term-variants"
+                    autoComplete="off"
+                    value={variants}
+                    onChange={(event) => setVariants(event.target.value)}
+                    placeholder="Separadas por comas"
+                  />
+                </div>
+                <div className="space-y-2 sm:col-span-2">
+                  <Label htmlFor="term-guidance">Orientación (opcional)</Label>
+                  <Textarea
+                    id="term-guidance"
+                    value={guidance}
+                    onChange={(event) => setGuidance(event.target.value)}
+                    maxLength={500}
+                  />
+                </div>
+              </div>
+            ) : null}
             <div className="space-y-2">
               <Label htmlFor="rule-description">
                 Instrucción clara y aplicable
@@ -504,7 +602,11 @@ export function LearningWorkspace() {
               disabled={
                 busy ||
                 title.trim().length < 5 ||
-                description.trim().length < 10
+                description.trim().length < 10 ||
+                (ruleKind === "glossary" &&
+                  (preferredTerm.trim().length < 2 ||
+                    variants.split(",").filter((item) => item.trim()).length ===
+                      0))
               }
             >
               {busy ? <LoaderCircle className="animate-spin" /> : <Plus />}Crear

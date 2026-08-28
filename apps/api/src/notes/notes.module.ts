@@ -7,6 +7,7 @@ import { NoteQaProcessorService } from './note-qa-processor.service';
 import { NoteQaQueueService } from './note-qa-queue.service';
 import { NoteQaWorkerService } from './note-qa-worker.service';
 import { NoteQaOutboxDispatcherService } from './note-qa-outbox-dispatcher.service';
+import { NoteSimilarityService } from './note-similarity.service';
 import { ExportsController } from './exports.controller';
 import { ExportsService } from './exports.service';
 import { ExportRendererService } from './export-renderer.service';
@@ -26,6 +27,7 @@ import { ExportOutboxDispatcherService } from './export-outbox-dispatcher.servic
     NoteQaQueueService,
     NoteQaWorkerService,
     NoteQaOutboxDispatcherService,
+    NoteSimilarityService,
     ExportsService,
     ExportRendererService,
     ExportStorageService,

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 export const titleCandidateSchema = z.object({
+  service: z.string().min(2).max(160),
   title: z.string().min(10).max(220),
   objective: z.string().min(10).max(600),
   audience: z.string().min(3).max(300),
@@ -57,6 +58,7 @@ export const titleSearchIntentSchema = z.enum([
 
 export const titleBriefSuggestionSchema = z.object({
   summary: z.string().min(20).max(1200),
+  service: z.string().min(2).max(160),
   topic: z.string().min(3).max(200),
   objective: z.string().min(10).max(600),
   audience: z.string().min(3).max(300),
@@ -114,6 +116,7 @@ export const titleBriefSnapshotSchema = z.object({
   }),
   history: z.array(
     z.object({
+      service: z.string().optional(),
       title: z.string(),
       objective: z.string(),
       searchIntent: z.string(),
@@ -165,6 +168,7 @@ export const titleRevisionSnapshotSchema = z.object({
   }),
   history: z.array(
     z.object({
+      service: z.string(),
       title: z.string(),
       searchIntent: z.string(),
       focus: z.string(),
@@ -189,6 +193,7 @@ export const titleGenerationSnapshotSchema = z.object({
     objective: z.string(),
     audience: z.string(),
     searchIntent: z.string(),
+    service: z.string().min(2).max(160),
     campaignYear: z.number().int().min(2020).max(2100),
     campaignMonth: z.number().int().min(1).max(12),
     count: z.union([z.literal(4), z.literal(5), z.literal(8)]),
@@ -201,6 +206,7 @@ export const titleGenerationSnapshotSchema = z.object({
   }),
   history: z.array(
     z.object({
+      service: z.string(),
       title: z.string(),
       objective: z.string(),
       searchIntent: z.string(),

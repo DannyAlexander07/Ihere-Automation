@@ -3,11 +3,14 @@ import {
   AuditActorType,
   EvaluationStatus,
   EvaluationVerdict,
+  LearningRuleStatus,
   NoteStatus,
   Prisma,
 } from '../generated/prisma/client';
 import { PrismaService } from '../database/prisma.service';
 import { NoteQaRulesService } from './note-qa-rules.service';
+import { NoteSimilarityService } from './note-similarity.service';
+import { parseEditorialGlossaries } from '../learning/editorial-glossary';
 
 const NOTE_QA_RULE_VERSION = 'note-editorial-rubric-v3';
 
@@ -18,6 +21,7 @@ export class NoteQaProcessorService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly rules: NoteQaRulesService,
+    private readonly similarity: NoteSimilarityService,
   ) {}
 
   async process(evaluationId: string, deadline: number) {
@@ -99,8 +103,49 @@ export class NoteQaProcessorService {
     ]);
 
     this.assertWithinDeadline(deadline);
+    const [comparisonNotes, glossaryRules] = await Promise.all([
+      this.prisma.noteDocument.findMany({
+        where: {
+          tenantId: evaluation.note.tenantId,
+          clientId: evaluation.note.clientId,
+          id: { not: evaluation.noteId },
+          currentVersion: { gt: 0 },
+        },
+        select: {
+          id: true,
+          versions: {
+            orderBy: { version: 'desc' },
+            take: 1,
+            select: { title: true, content: true },
+          },
+        },
+      }),
+      this.prisma.learningRule.findMany({
+        where: {
+          tenantId: evaluation.note.tenantId,
+          status: LearningRuleStatus.ACTIVE,
+          OR: [{ clientId: evaluation.note.clientId }, { clientId: null }],
+          glossary: { not: Prisma.JsonNull },
+        },
+        select: { glossary: true },
+      }),
+    ]);
+    const similarity = this.similarity.compare(
+      { title: version.title, content: version.content },
+      comparisonNotes.flatMap((note) =>
+        note.versions.map((item) => ({
+          noteId: note.id,
+          title: item.title,
+          content: item.content,
+        })),
+      ),
+    );
     const result = this.rules.evaluate(version, {
       clientSlug: evaluation.note.client.slug,
+      similarity,
+      glossary: parseEditorialGlossaries(
+        glossaryRules.map((rule) => rule.glossary),
+      ),
     });
     this.assertWithinDeadline(deadline);
     const durationMs = Math.max(0, Date.now() - startedAt);

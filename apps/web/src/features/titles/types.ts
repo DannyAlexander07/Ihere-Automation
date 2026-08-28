@@ -58,6 +58,7 @@ export type TitleCandidate = {
     createdAt: string;
   };
   title: string;
+  service: string;
   client: string;
   campaign: string;
   objective: string;
@@ -97,6 +98,7 @@ export type TitleCorrectionType =
   | "one_off";
 
 export type TitleEditorialDraft = {
+  service: string;
   title: string;
   objective: string;
   audience: string;

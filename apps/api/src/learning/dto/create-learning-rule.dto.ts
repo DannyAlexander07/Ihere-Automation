@@ -7,7 +7,37 @@ import {
   Matches,
   MaxLength,
   MinLength,
+  IsOptional,
+  ValidateNested,
 } from 'class-validator';
+import { Type } from 'class-transformer';
+
+export class GlossaryEntryDto {
+  @IsString()
+  @MinLength(2)
+  @MaxLength(160)
+  preferredTerm!: string;
+
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(20)
+  @IsString({ each: true })
+  variants!: string[];
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  guidance?: string;
+}
+
+export class EditorialGlossaryDto {
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(50)
+  @ValidateNested({ each: true })
+  @Type(() => GlossaryEntryDto)
+  entries!: GlossaryEntryDto[];
+}
 
 export class CreateLearningRuleDto {
   @IsUUID()
@@ -33,4 +63,9 @@ export class CreateLearningRuleDto {
   @ArrayMaxSize(100)
   @IsUUID('4', { each: true })
   signalIds!: string[];
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => EditorialGlossaryDto)
+  glossary?: EditorialGlossaryDto;
 }

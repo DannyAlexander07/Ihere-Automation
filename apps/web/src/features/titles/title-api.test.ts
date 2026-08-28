@@ -6,6 +6,7 @@ const persistedTitle: ApiTitle = {
   id: "title-1",
   clientId: "client-1",
   title: "Cómo fortalecer la empleabilidad con decisiones informadas",
+  service: "Training & Consulting",
   objective: "Orientar una decisión concreta de empleabilidad.",
   audience: "Profesionales y líderes de recursos humanos",
   searchIntent: "Resolver",

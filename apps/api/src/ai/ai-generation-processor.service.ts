@@ -464,6 +464,7 @@ export class AiGenerationProcessorService {
             tenantId: run.tenantId,
             clientId: run.clientId,
             generationRunId: run.id,
+            service: snapshot.request.service,
             title: candidate.title,
             canonicalTitle: this.canonicalize(candidate.title),
             objective: candidate.objective,
@@ -477,6 +478,7 @@ export class AiGenerationProcessorService {
             versions: {
               create: {
                 version: 1,
+                service: snapshot.request.service,
                 title: candidate.title,
                 objective: candidate.objective,
                 audience: candidate.audience,
@@ -591,6 +593,7 @@ export class AiGenerationProcessorService {
           },
         },
         data: {
+          service: snapshot.proposal.service,
           title: result.revised.title,
           canonicalTitle: this.canonicalize(result.revised.title),
           objective: result.revised.objective,
@@ -616,6 +619,7 @@ export class AiGenerationProcessorService {
         data: {
           proposalId: run.titleProposalId,
           version: nextVersion,
+          service: snapshot.proposal.service,
           title: result.revised.title,
           objective: result.revised.objective,
           audience: result.revised.audience,
@@ -1233,6 +1237,7 @@ export class AiGenerationProcessorService {
       snapshot.history.map((item) => this.canonicalize(item.title)),
     );
     const candidates = judged.candidates
+      .map((item) => ({ ...item, service: snapshot.request.service }))
       .filter((item) => {
         const canonical = this.canonicalize(item.title);
         if (!canonical || seen.has(canonical) || historical.has(canonical))
@@ -1385,6 +1390,7 @@ export class AiGenerationProcessorService {
     return [
       'Eres el estratega SEO, GEO y AEO de I HERE.',
       'Propón títulos editoriales naturales en español peruano para el cliente indicado.',
+      'request.service es el servicio obligatorio del paquete: cópialo literalmente en cada propuesta, no lo sustituyas, amplíes ni traduzcas.',
       'Usa el historial para evitar repetición temática y aplica solo las reglas activas.',
       'Respeta literalmente los nombres de servicios y términos de marca definidos en las reglas activas; no inventes categorías paraguas ni sinónimos comerciales.',
       'Dentro de un mismo lote, diferencia cada propuesta por línea de servicio, problema de negocio, intención y decisión del lector; no presentes paráfrasis del mismo artículo.',
@@ -1400,6 +1406,7 @@ export class AiGenerationProcessorService {
       'Eres director de estrategia editorial SEO, GEO y AEO para Adecco Perú dentro de I HERE.',
       'Prepara un encargo nuevo, profundo y completamente editable para el mes solicitado.',
       'La intención indicada en request.searchIntent fue elegida por una persona: respétala literalmente y no la sustituyas por otra.',
+      'Propón un único servicio oficial y específico en service; no uses categorías genéricas ni combines servicios distintos.',
       'Contrasta todo el historial del cliente: no repitas el mismo tema, pregunta, intención, enfoque ni decisión del lector, aunque cambien las palabras.',
       'Rota de forma razonada entre estos pilares cuando correspondan a las reglas activas: atracción y selección; outsourcing y operaciones; payroll y cumplimiento; training y consulting; sales y marketing.',
       'El objetivo debe indicar qué comprenderá, comparará o decidirá el lector. El contexto debe precisar servicio, problema de negocio, ángulo, evidencia necesaria, límites y temas que conviene evitar.',
@@ -1415,6 +1422,7 @@ export class AiGenerationProcessorService {
       'Eres el editor senior responsable de corregir una propuesta de título observada o rechazada por el cliente.',
       'Aplica íntegramente el motivo registrado, sin ignorarlo ni maquillarlo con una paráfrasis superficial.',
       'Devuelve una versión nueva con título, objetivo, público, intención, enfoque, oportunidad y riesgo coherentes entre sí.',
+      'Conserva literalmente proposal.service: una observación de redacción no autoriza cambiar el servicio aprobado para el paquete.',
       'Mantén la temática y el cupo editorial del paquete, pero cambia el ángulo cuando la observación lo exija.',
       'Contrasta el historial para evitar equivalencias temáticas, canibalización y repetición dentro del cliente.',
       'Aplica solo reglas activas; no inventes datos, servicios, resultados, normas, fuentes ni experiencia atribuida a Adecco.',
@@ -1429,6 +1437,7 @@ export class AiGenerationProcessorService {
       'Eres el editor de marca de I HERE.',
       'Revisa cada propuesta por claridad, naturalidad, intención, diferenciación y utilidad.',
       'Comprueba que el nombre del servicio coincida con las reglas activas y que el lote no concentre todos los títulos en una sola solución o ángulo.',
+      'Cada candidato debe conservar literalmente request.service.',
       'Corrige redacción robótica, promesas exageradas, repetición y fórmulas genéricas.',
       'Conserva objetivo, público e intención y entrega hallazgos verificables, no razonamiento privado.',
       'Devuelve únicamente la estructura solicitada.',
@@ -1439,6 +1448,7 @@ export class AiGenerationProcessorService {
     return [
       'Eres el juez editorial final de I HERE.',
       'Selecciona y mejora las mejores propuestas del editor.',
+      'Conserva literalmente request.service en todas las alternativas finales.',
       'Descarta coincidencias exactas o equivalentes al historial y evita canibalización evidente.',
       'No apruebes afirmaciones factuales que el título no pueda sostener después con fuentes.',
       'Entrega exactamente la cantidad solicitada: cuatro, cinco u ocho alternativas únicas según el encargo.',

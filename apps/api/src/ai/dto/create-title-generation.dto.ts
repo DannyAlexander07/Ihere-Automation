@@ -16,6 +16,12 @@ export class CreateTitleGenerationDto {
   @IsUUID()
   clientId!: string;
 
+  @ApiProperty({ minLength: 2, maxLength: 160 })
+  @IsString()
+  @MinLength(2)
+  @MaxLength(160)
+  service!: string;
+
   @ApiProperty({ minLength: 3, maxLength: 200 })
   @IsString()
   @MinLength(3)

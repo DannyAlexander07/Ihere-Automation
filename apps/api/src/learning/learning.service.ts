@@ -43,6 +43,16 @@ export class LearningService {
         createdAt: true,
         client: { select: { name: true } },
         proposal: { select: { id: true, title: true } },
+        note: {
+          select: {
+            id: true,
+            versions: {
+              orderBy: { version: 'desc' },
+              take: 1,
+              select: { title: true },
+            },
+          },
+        },
         actor: { select: { displayName: true } },
       },
       orderBy: { createdAt: 'desc' },
@@ -110,6 +120,9 @@ export class LearningService {
               code: input.code,
               title: input.title,
               description: input.description,
+              glossary: input.glossary
+                ? (input.glossary as unknown as Prisma.InputJsonObject)
+                : undefined,
               evidenceCount: signals.length,
             },
           });

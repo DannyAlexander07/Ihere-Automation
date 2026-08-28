@@ -27,6 +27,7 @@ export type PublicTitleReview = {
   recipientName: string;
   recipientEmailHint: string | null;
   content: {
+    service: string;
     title: string;
     objective: string;
     audience: string;
@@ -187,6 +188,7 @@ export function TitleReviewPortal({
                 ["Público", content.audience],
                 ["Intención de búsqueda", content.searchIntent],
                 ["Enfoque", content.focus],
+                ["Servicio de Adecco", content.service],
                 ["Oportunidad", content.opportunity],
                 ["Riesgo a evitar", content.risk],
               ].map(([label, value]) => (

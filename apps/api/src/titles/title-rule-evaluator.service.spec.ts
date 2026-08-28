@@ -15,6 +15,7 @@ describe('TitleRuleEvaluatorService', () => {
       'Cómo identificar puestos críticos para asegurar la continuidad del negocio',
     canonicalTitle:
       'como identificar puestos criticos para asegurar la continuidad del negocio',
+    service: 'Training & Consulting',
     objective:
       'Ayudar a líderes de recursos humanos a identificar posiciones que sostienen la operación.',
     audience: 'Líderes y responsables de recursos humanos',

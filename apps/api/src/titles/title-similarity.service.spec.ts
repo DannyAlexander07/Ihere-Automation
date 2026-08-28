@@ -14,6 +14,7 @@ describe('TitleSimilarityService', () => {
     title: 'Cómo identificar puestos críticos para la continuidad del negocio',
     canonicalTitle:
       'como identificar puestos criticos para la continuidad del negocio',
+    service: 'Training & Consulting',
     objective: 'Orientar la identificación de posiciones críticas.',
     audience: 'Líderes de recursos humanos',
     searchIntent: 'Aprender a identificar puestos críticos',

@@ -12,6 +12,11 @@ export class CreateTitleDto {
   @IsUUID()
   clientId!: string;
 
+  @IsString()
+  @MinLength(2)
+  @MaxLength(160)
+  service!: string;
+
   @ApiProperty({ maxLength: 220 })
   @IsString()
   @MinLength(10)

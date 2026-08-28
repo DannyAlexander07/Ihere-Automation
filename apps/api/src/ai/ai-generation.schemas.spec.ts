@@ -26,6 +26,7 @@ describe('esquemas de generación inteligente', () => {
       titleGenerationSnapshotSchema.parse({
         request: {
           topic: 'Retención de talento',
+          service: 'Outsourcing de Gestión Humana',
           objective: 'Orientar decisiones responsables de recursos humanos.',
           audience: 'Gerencias de Recursos Humanos',
           searchIntent: 'Resolver',
@@ -50,6 +51,7 @@ describe('esquemas de generación inteligente', () => {
     const base = {
       request: {
         topic: 'Retención de talento',
+        service: 'Outsourcing de Gestión Humana',
         objective: 'Orientar decisiones responsables de recursos humanos.',
         audience: 'Gerencias de Recursos Humanos',
         searchIntent: 'Resolver',
@@ -87,6 +89,7 @@ describe('esquemas de generación inteligente', () => {
     const suggestion = finalizeTitleBriefSuggestion(
       {
         summary: 'Encargo editorial diferenciado y listo para revisión.',
+        service: 'Facility Management',
         topic: 'Facility Management para operaciones con varias sedes',
         objective:
           'Ayudar a comparar alternativas con criterios operativos verificables.',

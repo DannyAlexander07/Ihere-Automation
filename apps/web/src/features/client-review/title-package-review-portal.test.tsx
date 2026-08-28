@@ -28,6 +28,7 @@ const review: PublicTitlePackageReview = {
       proposalId: "proposal-1",
       version: 1,
       content: {
+        service: "Training & Consulting",
         title: "Cómo fortalecer la empleabilidad en un mercado cambiante",
         objective: "Orientar una decisión informada.",
         audience: "Gerencias de Recursos Humanos",
@@ -41,6 +42,7 @@ const review: PublicTitlePackageReview = {
       proposalId: "proposal-2",
       version: 2,
       content: {
+        service: "Outsourcing de Gestión Humana",
         title: "Gestión del talento: decisiones para sostener el negocio",
         objective: "Explicar criterios de priorización.",
         audience: "Líderes empresariales",

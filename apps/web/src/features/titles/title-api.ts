@@ -37,6 +37,7 @@ export type ApiEvaluation = {
 export type ApiTitle = {
   id: string;
   clientId: string;
+  service: string;
   title: string;
   objective: string;
   audience: string;
@@ -318,6 +319,7 @@ export function mapApiTitle(title: ApiTitle, owner: string): TitleCandidate {
       : undefined,
     clientFeedback: latestClientFeedback,
     title: title.title,
+    service: title.service,
     client: title.client.name,
     campaign: month.format(new Date(title.createdAt)),
     objective: title.objective,

@@ -14,6 +14,7 @@ import {
   AuditActorType,
   ClientReviewDecisionType,
   ClientReviewLinkStatus,
+  CorrectionType,
   NoteImageStatus,
   NoteStatus,
   Prisma,
@@ -525,6 +526,32 @@ export class NotePackageReviewService {
               userAgent: context.userAgent?.slice(0, 500),
             },
           });
+          if (decision.type !== ClientReviewDecisionType.APPROVE) {
+            const reviewedVersion = await tx.noteVersion.findUniqueOrThrow({
+              where: {
+                noteId_version: {
+                  noteId: item.noteId,
+                  version: item.version,
+                },
+              },
+              select: { id: true, title: true },
+            });
+            const reason = decision.reason?.trim() || 'Revisión del cliente.';
+            await tx.correctionSignal.create({
+              data: {
+                tenantId: link.tenantId,
+                clientId: link.clientId,
+                noteId: item.noteId,
+                noteVersionId: reviewedVersion.id,
+                field: 'client.note_feedback',
+                beforeValue: reviewedVersion.title,
+                afterValue: reason,
+                reason,
+                correctionType: CorrectionType.OTHER,
+                actorId: link.createdById,
+              },
+            });
+          }
           await tx.noteImageProposal.updateMany({
             where: { noteId: item.noteId, version: item.version },
             data: {

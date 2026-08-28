@@ -8,6 +8,7 @@ function candidate(index: number): TitleCandidate {
     id: `title-${index}`,
     clientId: "client-a",
     title: `Título del expediente ${index}`,
+    service: "Training & Consulting",
     client: "Adecco Perú",
     campaign: "Agosto de 2026",
     objective: "Orientar una decisión concreta.",

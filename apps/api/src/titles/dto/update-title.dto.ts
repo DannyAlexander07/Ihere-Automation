@@ -29,6 +29,7 @@ export class UpdateTitleDto {
   @IsEnum(CorrectionType)
   correctionType!: CorrectionType;
 
+  @IsOptional() @IsString() @MinLength(2) @MaxLength(160) service?: string;
   @IsOptional() @IsString() @MinLength(10) @MaxLength(220) title?: string;
   @IsOptional() @IsString() @MinLength(10) @MaxLength(600) objective?: string;
   @IsOptional() @IsString() @MinLength(3) @MaxLength(300) audience?: string;

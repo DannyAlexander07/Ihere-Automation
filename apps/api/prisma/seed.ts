@@ -183,6 +183,21 @@ const adeccoEditorialRules = [
     evidenceCount: 5,
     description:
       'No describir a Adecco como “agencia de empleo”. Usar, según el contexto y la evidencia disponible, “consultora de gestión humana”, “empresa de reclutamiento y selección” o “head hunter”. Respetar nombres oficiales como “Outsourcing de Gestión Humana” y “Facility Management”. No crear categorías genéricas como “outsourcing estratégico”.',
+    glossary: {
+      entries: [
+        {
+          preferredTerm: 'Outsourcing de Gestión Humana',
+          variants: ['outsourcing estratégico'],
+          guidance:
+            'Usar la línea oficial y no inventar categorías comerciales.',
+        },
+        {
+          preferredTerm: 'RPO',
+          variants: ['RPO por volumen'],
+          guidance: 'RPO ya comprende procesos de selección por volumen.',
+        },
+      ],
+    },
   },
   {
     code: 'adecco-rpo-precision-v1',

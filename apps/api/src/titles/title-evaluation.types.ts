@@ -4,6 +4,7 @@ export type EvaluationTitle = {
   id: string;
   tenantId: string;
   clientId: string;
+  service: string;
   title: string;
   canonicalTitle: string;
   objective: string;

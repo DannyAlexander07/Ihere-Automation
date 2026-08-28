@@ -10,6 +10,7 @@ import { ConfigService } from '@nestjs/config';
 import type { AuthPrincipal } from '../common/auth/auth-principal';
 import { hasPermission } from '../common/auth/auth-principal';
 import { PrismaService } from '../database/prisma.service';
+import { parseEditorialGlossaries } from '../learning/editorial-glossary';
 import {
   AiGenerationKind,
   AiGenerationStatus,
@@ -61,6 +62,7 @@ export class AiGenerationService {
         orderBy: { createdAt: 'desc' },
         take: 100,
         select: {
+          service: true,
           title: true,
           objective: true,
           searchIntent: true,
@@ -77,7 +79,7 @@ export class AiGenerationService {
         },
         orderBy: { updatedAt: 'desc' },
         take: 50,
-        select: { id: true, title: true, description: true },
+        select: { id: true, title: true, description: true, glossary: true },
       }),
       this.prisma.correctionSignal.findMany({
         where: { tenantId: principal.tenantId, clientId: input.clientId },
@@ -103,6 +105,7 @@ export class AiGenerationService {
     );
     const snapshot: Prisma.InputJsonObject = {
       request: {
+        service: input.service.trim(),
         topic: campaignTopic,
         objective: input.objective.trim(),
         audience: input.audience.trim(),
@@ -118,7 +121,7 @@ export class AiGenerationService {
         status: item.status,
         createdAt: item.createdAt.toISOString(),
       })),
-      activeRules,
+      activeRules: this.presentLearningRules(activeRules),
       corrections: corrections.map((item) => ({
         ...item,
         correctionType: item.correctionType,
@@ -337,7 +340,7 @@ export class AiGenerationService {
         },
         orderBy: { updatedAt: 'desc' },
         take: 50,
-        select: { id: true, title: true, description: true },
+        select: { id: true, title: true, description: true, glossary: true },
       }),
       this.prisma.titleProposal.findMany({
         where: {
@@ -347,7 +350,7 @@ export class AiGenerationService {
         },
         orderBy: { updatedAt: 'desc' },
         take: 200,
-        select: { title: true, searchIntent: true, focus: true },
+        select: { service: true, title: true, searchIntent: true, focus: true },
       }),
     ]);
     const pendingExisting = await this.prisma.aiGenerationRun.findMany({
@@ -392,6 +395,7 @@ export class AiGenerationService {
         },
         proposal: {
           id: proposal.id,
+          service: proposal.service,
           version: proposal.currentVersion,
           status: proposal.status,
           title: proposal.title,
@@ -410,7 +414,7 @@ export class AiGenerationService {
           createdAt: feedback.createdAt.toISOString(),
         },
         history,
-        activeRules,
+        activeRules: this.presentLearningRules(activeRules),
       };
       queued.push(
         await this.queueGenericRun({
@@ -509,7 +513,7 @@ export class AiGenerationService {
       },
       orderBy: { updatedAt: 'desc' },
       take: 50,
-      select: { id: true, title: true, description: true },
+      select: { id: true, title: true, description: true, glossary: true },
     });
     const currentVersion = note.versions[0];
     if (!currentVersion)
@@ -556,7 +560,7 @@ export class AiGenerationService {
         },
       },
       clientFeedback,
-      activeRules,
+      activeRules: this.presentLearningRules(activeRules),
       corrections: note.versions
         .filter((version) => version.changeReason || version.correctionType)
         .map((version) => ({
@@ -731,6 +735,7 @@ export class AiGenerationService {
         orderBy: { createdAt: 'desc' },
         take: 200,
         select: {
+          service: true,
           title: true,
           objective: true,
           searchIntent: true,
@@ -747,7 +752,7 @@ export class AiGenerationService {
         },
         orderBy: { updatedAt: 'desc' },
         take: 50,
-        select: { id: true, title: true, description: true },
+        select: { id: true, title: true, description: true, glossary: true },
       }),
       this.prisma.correctionSignal.findMany({
         where: { tenantId, clientId },
@@ -770,13 +775,40 @@ export class AiGenerationService {
         status: item.status,
         createdAt: item.createdAt.toISOString(),
       })),
-      activeRules,
+      activeRules: this.presentLearningRules(activeRules),
       corrections: corrections.map((item) => ({
         ...item,
         correctionType: item.correctionType,
         createdAt: item.createdAt.toISOString(),
       })),
     };
+  }
+
+  private presentLearningRules(
+    rules: Array<{
+      id: string;
+      title: string;
+      description: string;
+      glossary: Prisma.JsonValue | null;
+    }>,
+  ) {
+    return rules.map((rule) => {
+      const glossary = parseEditorialGlossaries([rule.glossary]);
+      const terminology = glossary.length
+        ? ` Terminología obligatoria: ${glossary
+            .map((entry) => {
+              const variants = entry.variants.join(', ');
+              const guidance = entry.guidance ? ` (${entry.guidance})` : '';
+              return `usar “${entry.preferredTerm}”; evitar ${variants}${guidance}`;
+            })
+            .join('; ')}.`
+        : '';
+      return {
+        id: rule.id,
+        title: rule.title,
+        description: `${rule.description}${terminology}`.trim(),
+      };
+    });
   }
 
   private async queueGenericRun(input: {

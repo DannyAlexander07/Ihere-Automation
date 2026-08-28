@@ -13,6 +13,11 @@ import {
   ADECCO_CONTACT_URL,
   isAdeccoSpecialistCta,
 } from './editorial-cta';
+import type { NoteSimilarityMatch } from './note-similarity.service';
+import {
+  evaluateEditorialGlossary,
+  type EditorialGlossaryEntry,
+} from '../learning/editorial-glossary';
 
 type QaVersion = Pick<
   NoteVersion,
@@ -43,7 +48,14 @@ type DimensionResult = {
 export class NoteQaRulesService {
   constructor(private readonly contentService: NoteContentService) {}
 
-  evaluate(version: QaVersion, context?: { clientSlug?: string }) {
+  evaluate(
+    version: QaVersion,
+    context?: {
+      clientSlug?: string;
+      similarity?: NoteSimilarityMatch | null;
+      glossary?: EditorialGlossaryEntry[];
+    },
+  ) {
     const content = version.content as Record<string, unknown>;
     const blocks = Array.isArray(content.blocks)
       ? (content.blocks as Array<Record<string, unknown>>)
@@ -176,6 +188,18 @@ export class NoteQaRulesService {
         allText,
       ) && version.sources.length === 0;
     const emptyBlocks = textBlocks.filter((text) => !text).length;
+    const similarity = context?.similarity ?? null;
+    const similarityPenalty = !similarity
+      ? 0
+      : similarity.score >= 76
+        ? 6
+        : similarity.score >= 58
+          ? 3
+          : 0;
+    const glossaryFindings = evaluateEditorialGlossary(
+      `${version.title} ${version.metaTitle ?? ''} ${version.metaDescription ?? ''} ${allText}`,
+      context?.glossary ?? [],
+    );
 
     const dimensions: DimensionResult[] = [
       this.dimension(
@@ -225,20 +249,28 @@ export class NoteQaRulesService {
       ),
       this.dimension(
         NoteQaDimension.ORIGINALITY_EVIDENCE,
-        (version.sources.length >= 3
-          ? 7
-          : version.sources.length >= 1
-            ? 3
-            : 0) +
-          this.points(hasPrimarySource, 5, 0) +
-          this.points(Boolean(version.authorName && version.authorRole), 4, 0) +
-          this.points(hasQuoteOrCallout, 2, 0) +
-          this.points(
-            version.sources.length > 0 &&
-              version.sources.every((source) => source.entity.length >= 2),
-            2,
-            0,
-          ),
+        Math.max(
+          0,
+          (version.sources.length >= 3
+            ? 7
+            : version.sources.length >= 1
+              ? 3
+              : 0) +
+            this.points(hasPrimarySource, 5, 0) +
+            this.points(
+              Boolean(version.authorName && version.authorRole),
+              4,
+              0,
+            ) +
+            this.points(hasQuoteOrCallout, 2, 0) +
+            this.points(
+              version.sources.length > 0 &&
+                version.sources.every((source) => source.entity.length >= 2),
+              2,
+              0,
+            ) -
+            similarityPenalty,
+        ),
         20,
         'Aporte atribuido, fuentes y afirmaciones verificables.',
         [
@@ -247,8 +279,21 @@ export class NoteQaRulesService {
             ? 'Incluye fuente prioritaria'
             : 'Sin fuente primaria o conocimiento Adecco',
           version.authorName ? 'Autoría identificada' : 'Autoría pendiente',
+          similarity
+            ? `Similitud máxima con “${similarity.title}”: ${similarity.score}%`
+            : 'No existen otras notas comparables del cliente',
+          ...glossaryFindings.map(
+            (finding) =>
+              `Usa “${finding.preferredTerm}” en lugar de “${finding.matchedVariant}”.`,
+          ),
         ],
-        { sourceCount: version.sources.length, hasPrimarySource },
+        {
+          sourceCount: version.sources.length,
+          hasPrimarySource,
+          similarity,
+          similarityPenalty,
+          glossaryFindings,
+        },
       ),
       this.dimension(
         NoteQaDimension.ORGANIZATION_CLARITY,
@@ -451,6 +496,15 @@ export class NoteQaRulesService {
             'Se detectó una afirmación de desempeño atribuida a automatización sin fuentes registradas.',
           ]
         : []),
+      ...(similarity && similarity.score >= 76
+        ? [
+            `La nota presenta ${similarity.score}% de similitud conceptual con “${similarity.title}”. Debe diferenciar problema, enfoque y decisión del lector antes de continuar.`,
+          ]
+        : []),
+      ...glossaryFindings.map(
+        (finding) =>
+          `Terminología no autorizada: reemplaza “${finding.matchedVariant}” por “${finding.preferredTerm}”${finding.guidance ? ` (${finding.guidance})` : ''}.`,
+      ),
       ...(version.sources.some(
         (source) => source.accessedAt.getTime() > Date.now() + 86_400_000,
       )

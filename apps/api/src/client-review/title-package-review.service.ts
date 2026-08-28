@@ -15,6 +15,7 @@ import {
   AuditActorType,
   ClientReviewDecisionType,
   ClientReviewLinkStatus,
+  CorrectionType,
   Prisma,
   TitleDecisionType,
   TitleStatus,
@@ -432,6 +433,7 @@ export class TitlePackageReviewService {
           proposalId: item.proposalId,
           version: item.version,
           content: {
+            service: version.service,
             title: version.title,
             objective: version.objective,
             audience: version.audience,
@@ -558,6 +560,32 @@ export class TitlePackageReviewService {
                 userAgent: context.userAgent?.slice(0, 500),
               },
             });
+            if (decision.type !== ClientReviewDecisionType.APPROVE) {
+              const reviewedVersion = await tx.titleVersion.findUniqueOrThrow({
+                where: {
+                  proposalId_version: {
+                    proposalId: item.proposalId,
+                    version: item.version,
+                  },
+                },
+                select: { id: true, title: true },
+              });
+              const reason = decision.reason?.trim() || 'Revisión del cliente.';
+              await tx.correctionSignal.create({
+                data: {
+                  tenantId: link.tenantId,
+                  clientId: link.clientId,
+                  proposalId: item.proposalId,
+                  versionId: reviewedVersion.id,
+                  field: 'client.title_feedback',
+                  beforeValue: reviewedVersion.title,
+                  afterValue: reason,
+                  reason,
+                  correctionType: CorrectionType.OTHER,
+                  actorId: link.createdById,
+                },
+              });
+            }
           }
           results.push({
             proposalId: item.proposalId,

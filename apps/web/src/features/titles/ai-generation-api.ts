@@ -10,6 +10,7 @@ export type TitleSearchIntent =
   "Aprender" | "Comparar" | "Decidir" | "Contratar" | "Resolver";
 
 export type TitleGenerationInput = {
+  service: string;
   topic: string;
   objective: string;
   audience: string;
@@ -21,6 +22,7 @@ export type TitleGenerationInput = {
 };
 
 export type TitleBriefSuggestion = {
+  service: string;
   topic: string;
   objective: string;
   audience: string;

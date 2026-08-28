@@ -5,6 +5,7 @@ import { GenerateTitlesDialog } from "./generate-titles-dialog";
 
 describe("GenerateTitlesDialog", () => {
   const suggestion: TitleBriefSuggestion = {
+    service: "Outsourcing de Gestión Humana",
     topic: "Planificación de dotación para campañas estacionales",
     objective:
       "Ayudar a decidir cómo anticipar la dotación sin perder agilidad operativa.",
@@ -96,6 +97,7 @@ describe("GenerateTitlesDialog", () => {
     await waitFor(() => expect(onGenerate).toHaveBeenCalledOnce());
     expect(onGenerate.mock.calls[0][0]).toEqual({
       topic: "Contratación temporal",
+      service: "Outsourcing de Gestión Humana",
       objective:
         "Explicar cómo planificar una campaña estacional con agilidad.",
       audience: "Gerencias de Recursos Humanos",

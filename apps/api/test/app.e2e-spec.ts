@@ -265,6 +265,7 @@ describe('I HERE API (e2e)', () => {
         clientId: scopedClient.id,
         title: 'Título de cliente sin permiso de notas',
         canonicalTitle: 'titulo de cliente sin permiso de notas',
+        service: 'Servicio de prueba',
         objective: 'Probar el alcance de listados.',
         audience: 'QA',
         searchIntent: 'Validación',
@@ -414,6 +415,7 @@ describe('I HERE API (e2e)', () => {
           payload: {
             clientId: clientAId,
             topic: 'Tema de prueba de permisos',
+            service: 'Servicio de prueba',
             objective: 'No debe ejecutar IA con permisos cruzados.',
             audience: 'Equipo QA',
             searchIntent: 'Validación',
@@ -447,6 +449,7 @@ describe('I HERE API (e2e)', () => {
           clientId: clientBId,
           title: 'Relación multiempresa inválida para prueba',
           canonicalTitle: 'relacion multiempresa invalida para prueba',
+          service: 'Servicio de prueba',
           objective: 'Demostrar la restricción de integridad en PostgreSQL.',
           audience: 'Equipo técnico',
           searchIntent: 'Validación de seguridad',
@@ -465,6 +468,7 @@ describe('I HERE API (e2e)', () => {
       payload: {
         clientId: clientAId,
         title: 'Cómo validar procesos editoriales sin perder trazabilidad',
+        service: 'Servicio de prueba',
         objective: 'Comprobar la exclusión mutua al solicitar evaluaciones.',
         audience: 'Equipo editorial',
         searchIntent: 'Aprender a validar procesos',
@@ -522,6 +526,7 @@ describe('I HERE API (e2e)', () => {
       payload: {
         clientId: clientAId,
         title: 'Cómo ordenar un proceso editorial con trazabilidad completa',
+        service: 'Servicio de prueba',
         objective: 'Validar una revisión atómica antes de la evaluación.',
         audience: 'Equipo editorial',
         searchIntent: 'Aprender a ordenar procesos',
@@ -572,6 +577,7 @@ describe('I HERE API (e2e)', () => {
         clientId: clientAId,
         title: 'Propuesta duplicada que debe descartarse',
         canonicalTitle: 'propuesta duplicada que debe descartarse',
+        service: 'Servicio de prueba',
         objective: 'Validar la semántica terminal de descartar.',
         audience: 'Equipo editorial',
         searchIntent: 'Validación técnica',
@@ -627,6 +633,7 @@ describe('I HERE API (e2e)', () => {
         clientId: clientAId,
         title: 'Título listo para una decisión editorial concurrente',
         canonicalTitle: 'titulo listo para una decision editorial concurrente',
+        service: 'Servicio de prueba',
         objective: 'Verificar que solo una decisión humana pueda prevalecer.',
         audience: 'Equipo editorial',
         searchIntent: 'Validación técnica',
@@ -684,6 +691,7 @@ describe('I HERE API (e2e)', () => {
         clientId: clientAId,
         title: 'Nota aprobada para validar versiones concurrentes',
         canonicalTitle: 'nota aprobada para validar versiones concurrentes',
+        service: 'Servicio de prueba',
         objective: 'Verificar el versionado optimista de las notas.',
         audience: 'Equipo editorial',
         searchIntent: 'Validación técnica',
@@ -738,6 +746,7 @@ describe('I HERE API (e2e)', () => {
         clientId: clientAId,
         title: 'Nota para reintentar un QA interrumpido',
         canonicalTitle: 'nota para reintentar un qa interrumpido',
+        service: 'Servicio de prueba',
         objective: 'Validar recuperación del QA.',
         audience: 'Equipo editorial',
         searchIntent: 'Validación técnica',
@@ -865,6 +874,7 @@ describe('I HERE API (e2e)', () => {
               title: 'Cómo fortalecer la empleabilidad en un mercado cambiante',
               canonicalTitle:
                 'como fortalecer la empleabilidad en un mercado cambiante',
+              service: 'Training & Consulting',
               objective: 'Orientar una decisión informada de talento.',
               audience: 'Gerencias de Recursos Humanos',
               searchIntent: 'Resolver una necesidad de empleabilidad',
@@ -879,6 +889,7 @@ describe('I HERE API (e2e)', () => {
                   version: 1,
                   title:
                     'Cómo fortalecer la empleabilidad en un mercado cambiante',
+                  service: 'Training & Consulting',
                   objective: 'Orientar una decisión informada de talento.',
                   audience: 'Gerencias de Recursos Humanos',
                   searchIntent: 'Resolver una necesidad de empleabilidad',
@@ -907,6 +918,7 @@ describe('I HERE API (e2e)', () => {
               title: 'Gestión del talento: decisiones para sostener el negocio',
               canonicalTitle:
                 'gestion del talento decisiones para sostener el negocio',
+              service: 'Outsourcing de Gestión Humana',
               objective: 'Explicar criterios de priorización empresarial.',
               audience: 'Líderes empresariales',
               searchIntent: 'Aprender a priorizar decisiones de talento',
@@ -921,6 +933,7 @@ describe('I HERE API (e2e)', () => {
                   version: 1,
                   title:
                     'Gestión del talento: decisiones para sostener el negocio',
+                  service: 'Outsourcing de Gestión Humana',
                   objective: 'Explicar criterios de priorización empresarial.',
                   audience: 'Líderes empresariales',
                   searchIntent: 'Aprender a priorizar decisiones de talento',
@@ -1077,18 +1090,37 @@ describe('I HERE API (e2e)', () => {
         },
       ],
     });
-    expect(
-      await prisma.titleProposal.findMany({
-        where: { generationRunId: run.id },
-        orderBy: { createdAt: 'asc' },
-        select: { status: true },
-      }),
-    ).toEqual([{ status: 'APPROVED' }, { status: 'CHANGES_REQUESTED' }]);
+    const persistedPackageStatuses = Object.fromEntries(
+      (
+        await prisma.titleProposal.findMany({
+          where: { generationRunId: run.id },
+          select: { id: true, status: true },
+        })
+      ).map((proposal) => [proposal.id, proposal.status]),
+    );
+    expect(persistedPackageStatuses).toEqual({
+      [run.titleProposals[0].id]: 'APPROVED',
+      [run.titleProposals[1].id]: 'CHANGES_REQUESTED',
+    });
     expect(
       await prisma.titlePackageReviewDecision.count({
         where: { item: { linkId: sharedBody.id } },
       }),
     ).toBe(2);
+    expect(
+      await prisma.correctionSignal.findFirstOrThrow({
+        where: {
+          clientId: clientAId,
+          proposalId: run.titleProposals[1].id,
+          field: 'client.title_feedback',
+        },
+        select: { beforeValue: true, afterValue: true, promotedRuleId: true },
+      }),
+    ).toEqual({
+      beforeValue: 'Gestión del talento: decisiones para sostener el negocio',
+      afterValue: 'Ajustar el enfoque al contexto laboral peruano.',
+      promotedRuleId: null,
+    });
     expect(
       await prisma.titlePackageReviewLink.findUniqueOrThrow({
         where: { id: sharedBody.id },
@@ -1104,6 +1136,7 @@ describe('I HERE API (e2e)', () => {
           proposalId: run.titleProposals[1].id,
           version: 2,
           title: correctedTitle,
+          service: 'Outsourcing de Gestión Humana',
           objective: 'Explicar criterios de priorización empresarial en Perú.',
           audience: 'Líderes empresariales en Perú',
           searchIntent: 'Aprender a priorizar decisiones de talento en Perú',
@@ -1240,6 +1273,7 @@ describe('I HERE API (e2e)', () => {
               clientId: clientAId,
               title,
               canonicalTitle: `alternativa mensual ${position} gestion del talento`,
+              service: `Servicio editorial ${position}`,
               objective: `Orientar la decisión editorial ${position}.`,
               audience: 'Gerencias de Recursos Humanos',
               searchIntent: 'Resolver una necesidad empresarial',
@@ -1253,6 +1287,7 @@ describe('I HERE API (e2e)', () => {
                 create: {
                   version: 1,
                   title,
+                  service: `Servicio editorial ${position}`,
                   objective: `Orientar la decisión editorial ${position}.`,
                   audience: 'Gerencias de Recursos Humanos',
                   searchIntent: 'Resolver una necesidad empresarial',
@@ -1369,6 +1404,7 @@ describe('I HERE API (e2e)', () => {
               clientId: clientAId,
               title,
               canonicalTitle: `nota mensual ${position} decisiones de talento con evidencia`,
+              service: `Servicio mensual ${position}`,
               objective: `Orientar una decisión de talento ${position}.`,
               audience: 'Gerencias de Recursos Humanos',
               searchIntent: 'Resolver',
@@ -1381,6 +1417,7 @@ describe('I HERE API (e2e)', () => {
                 create: {
                   version: 1,
                   title,
+                  service: `Servicio mensual ${position}`,
                   objective: `Orientar una decisión de talento ${position}.`,
                   audience: 'Gerencias de Recursos Humanos',
                   searchIntent: 'Resolver',
@@ -1549,6 +1586,7 @@ describe('I HERE API (e2e)', () => {
         title: 'Mapeo de puestos críticos para la continuidad del negocio',
         canonicalTitle:
           'mapeo de puestos criticos para la continuidad del negocio',
+        service: 'Training & Consulting',
         objective: 'Preparar una guía editorial útil y verificable.',
         audience: 'Líderes de recursos humanos',
         searchIntent: 'Aprender a mapear puestos críticos',
@@ -1560,6 +1598,7 @@ describe('I HERE API (e2e)', () => {
           create: {
             version: 1,
             title: 'Mapeo de puestos críticos para la continuidad del negocio',
+            service: 'Training & Consulting',
             objective: 'Preparar una guía editorial útil y verificable.',
             audience: 'Líderes de recursos humanos',
             searchIntent: 'Aprender a mapear puestos críticos',
@@ -2234,6 +2273,7 @@ describe('I HERE API (e2e)', () => {
         clientId: clientAId,
         title: 'Versión vigente que mantiene su evaluación activa',
         canonicalTitle: 'version vigente que mantiene su evaluacion activa',
+        service: 'Servicio de prueba',
         objective:
           'Evitar que un trabajo anterior modifique el estado vigente.',
         audience: 'Equipo editorial',
@@ -2639,6 +2679,7 @@ describe('I HERE API (e2e)', () => {
         clientId: clientB.id,
         title: 'Título privado de otra organización para prueba E2E',
         canonicalTitle: 'titulo privado de otra organizacion para prueba e2e',
+        service: 'Servicio de prueba',
         objective: 'Comprobar el aislamiento entre organizaciones.',
         audience: 'Equipo de QA',
         searchIntent: 'Validación técnica',

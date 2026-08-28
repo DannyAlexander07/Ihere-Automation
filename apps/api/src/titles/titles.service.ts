@@ -30,6 +30,7 @@ import { TitleWorkflowService } from './title-workflow.service';
 import { TITLE_EVALUATION_JOB } from './title-evaluation-queue.service';
 
 const editableFields = [
+  'service',
   'title',
   'objective',
   'audience',
@@ -67,6 +68,7 @@ export class TitlesService {
       select: {
         id: true,
         clientId: true,
+        service: true,
         title: true,
         objective: true,
         audience: true,
@@ -123,6 +125,7 @@ export class TitlesService {
           select: {
             id: true,
             version: true,
+            service: true,
             title: true,
             changeReason: true,
             correctionType: true,
@@ -221,6 +224,7 @@ export class TitlesService {
         data: {
           tenantId: principal.tenantId,
           clientId: input.clientId,
+          service: input.service.trim(),
           title: input.title,
           canonicalTitle,
           objective: input.objective,
@@ -233,6 +237,7 @@ export class TitlesService {
           versions: {
             create: {
               version: 1,
+              service: input.service.trim(),
               title: input.title,
               objective: input.objective,
               audience: input.audience,
@@ -575,6 +580,7 @@ export class TitlesService {
         data: {
           proposalId: id,
           version: nextVersion,
+          service: merged.service,
           title: merged.title,
           objective: merged.objective,
           audience: merged.audience,

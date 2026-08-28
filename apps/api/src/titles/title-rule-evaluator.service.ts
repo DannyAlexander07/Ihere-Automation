@@ -6,6 +6,7 @@ import type {
   RuleAgentResult,
   RuleEvaluation,
 } from './title-evaluation.types';
+import type { GlossaryFinding } from '../learning/editorial-glossary';
 
 const actionTerms = new Set([
   'como',
@@ -26,6 +27,7 @@ export class TitleRuleEvaluatorService {
   evaluate(
     proposal: EvaluationTitle,
     duplicate: DuplicateEvaluation,
+    glossaryFindings: GlossaryFinding[] = [],
   ): RuleEvaluation {
     const title = proposal.title.trim();
     const titleWords = this.words(title);
@@ -97,6 +99,10 @@ export class TitleRuleEvaluatorService {
       ...(duplicate.score >= 75
         ? ['La duplicidad alta requiere una decisión humana']
         : []),
+      ...glossaryFindings.map(
+        (finding) =>
+          `Terminología no autorizada: reemplaza “${finding.matchedVariant}” por “${finding.preferredTerm}”${finding.guidance ? ` (${finding.guidance})` : ''}`,
+      ),
     ];
     const overallScore = Object.values(dimensions).reduce(
       (total, value) => total + value,

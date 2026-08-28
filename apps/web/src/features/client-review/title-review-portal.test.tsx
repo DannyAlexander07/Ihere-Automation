@@ -22,6 +22,7 @@ const review: PublicTitleReview = {
   recipientName: "Angie Rojas",
   recipientEmailHint: "a***@cliente.pe",
   content: {
+    service: "Training & Consulting",
     title: "Mapeo de puestos críticos para la continuidad del negocio",
     objective: "Orientar una decisión de gestión del talento.",
     audience: "Líderes de Recursos Humanos",

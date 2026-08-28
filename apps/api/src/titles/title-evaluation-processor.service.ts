@@ -5,6 +5,7 @@ import {
   DuplicateResolution,
   EvaluationStatus,
   EvaluationVerdict,
+  LearningRuleStatus,
   Prisma,
   TitleStatus,
 } from '../generated/prisma/client';
@@ -12,6 +13,10 @@ import { PrismaService } from '../database/prisma.service';
 import { TitleRuleEvaluatorService } from './title-rule-evaluator.service';
 import { TitleSimilarityService } from './title-similarity.service';
 import type { EvaluationTitle } from './title-evaluation.types';
+import {
+  evaluateEditorialGlossary,
+  parseEditorialGlossaries,
+} from '../learning/editorial-glossary';
 
 @Injectable()
 export class TitleEvaluationProcessorService {
@@ -100,7 +105,7 @@ export class TitleEvaluationProcessorService {
       status: true,
       createdAt: true,
     } as const;
-    const [exactTitles, recentTitles] = await Promise.all([
+    const [exactTitles, recentTitles, glossaryRules] = await Promise.all([
       this.prisma.titleProposal.findMany({
         where: {
           ...comparisonWhere,
@@ -115,6 +120,15 @@ export class TitleEvaluationProcessorService {
         orderBy: { updatedAt: 'desc' },
         take: 500,
       }),
+      this.prisma.learningRule.findMany({
+        where: {
+          tenantId: evaluation.proposal.tenantId,
+          status: LearningRuleStatus.ACTIVE,
+          OR: [{ clientId: evaluation.proposal.clientId }, { clientId: null }],
+          glossary: { not: Prisma.JsonNull },
+        },
+        select: { glossary: true },
+      }),
     ]);
     const comparableTitles = [
       ...new Map(
@@ -123,8 +137,16 @@ export class TitleEvaluationProcessorService {
     ];
     const proposal = evaluation.proposal as EvaluationTitle;
     const duplicate = this.similarity.evaluate(proposal, comparableTitles);
+    const glossaryFindings = evaluateEditorialGlossary(
+      `${proposal.service} ${proposal.title} ${proposal.objective} ${proposal.audience} ${proposal.focus} ${proposal.opportunity ?? ''} ${proposal.risk ?? ''}`,
+      parseEditorialGlossaries(glossaryRules.map((rule) => rule.glossary)),
+    );
     this.assertWithinDeadline(deadline);
-    const result = this.evaluator.evaluate(proposal, duplicate);
+    const result = this.evaluator.evaluate(
+      proposal,
+      duplicate,
+      glossaryFindings,
+    );
     const durationMs = Math.max(0, Date.now() - processingStartedAt);
     const duplicateResolution =
       duplicate.score >= 75

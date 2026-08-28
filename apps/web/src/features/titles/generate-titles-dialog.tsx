@@ -100,6 +100,7 @@ export function GenerateTitlesDialog({
   onSuggest,
   onGenerate,
 }: Props) {
+  const [service, setService] = useState("");
   const [topic, setTopic] = useState("");
   const [objective, setObjective] = useState("");
   const [audience, setAudience] = useState("");
@@ -128,6 +129,7 @@ export function GenerateTitlesDialog({
     setError(null);
     try {
       const suggestion = await onSuggest(campaignYear, campaignMonth, intent);
+      setService(suggestion.service);
       setTopic(suggestion.topic);
       setObjective(suggestion.objective);
       setAudience(suggestion.audience);
@@ -146,6 +148,7 @@ export function GenerateTitlesDialog({
   };
 
   const resetRequest = () => {
+    setService("");
     setTopic("");
     setObjective("");
     setAudience("");
@@ -176,6 +179,7 @@ export function GenerateTitlesDialog({
     try {
       const summary = await onGenerate(
         {
+          service: service.trim(),
           topic: topic.trim(),
           objective: objective.trim(),
           audience: audience.trim(),
@@ -209,6 +213,7 @@ export function GenerateTitlesDialog({
 
   const canGenerate =
     Boolean(intent) &&
+    service.trim().length >= 2 &&
     topic.trim().length >= 3 &&
     objective.trim().length >= 10 &&
     audience.trim().length >= 3;
@@ -389,6 +394,7 @@ export function GenerateTitlesDialog({
                 className="ml-auto"
                 onClick={() => {
                   setBriefReady(false);
+                  setService("");
                   setTopic("");
                   setObjective("");
                   setAudience("");
@@ -403,9 +409,25 @@ export function GenerateTitlesDialog({
             </div>
             <div className="grid gap-4 py-2 sm:grid-cols-2">
               <div className="space-y-2 sm:col-span-2">
+                <Label htmlFor="service">Servicio de Adecco</Label>
+                <Input
+                  id="service"
+                  autoComplete="off"
+                  maxLength={160}
+                  value={service}
+                  onChange={(event) => setService(event.target.value)}
+                  placeholder="Ej. Facility Management, Payroll o Training & Consulting"
+                />
+                <p className="text-xs leading-5 text-muted-foreground">
+                  Será obligatorio para todo el paquete y quedará bloqueado en
+                  el brief de las notas aprobadas.
+                </p>
+              </div>
+              <div className="space-y-2 sm:col-span-2">
                 <Label htmlFor="topic">Tema principal</Label>
                 <Input
                   id="topic"
+                  autoComplete="off"
                   maxLength={200}
                   value={topic}
                   onChange={(event) => setTopic(event.target.value)}
@@ -428,6 +450,7 @@ export function GenerateTitlesDialog({
                 <Label htmlFor="audience">Público</Label>
                 <Input
                   id="audience"
+                  autoComplete="off"
                   maxLength={300}
                   value={audience}
                   onChange={(event) => setAudience(event.target.value)}

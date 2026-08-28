@@ -134,6 +134,7 @@ function TitleDetailBody({
   const [tab, setTab] = useState<DetailTab>("summary");
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<TitleEditorialDraft>({
+    service: candidate.service,
     title: candidate.title,
     objective: candidate.objective,
     audience: candidate.audience,
@@ -159,6 +160,7 @@ function TitleDetailBody({
     candidate.status,
   );
   const hasEditorialChanges =
+    draft.service.trim() !== candidate.service.trim() ||
     draft.title.trim() !== candidate.title.trim() ||
     draft.objective.trim() !== candidate.objective.trim() ||
     draft.audience.trim() !== candidate.audience.trim() ||
@@ -167,6 +169,7 @@ function TitleDetailBody({
     draft.opportunity.trim() !== candidate.opportunity.trim() ||
     draft.risk.trim() !== candidate.risk.trim();
   const validEditorialDraft =
+    draft.service.trim().length >= 2 &&
     draft.title.trim().length >= 10 &&
     draft.objective.trim().length >= 10 &&
     draft.audience.trim().length >= 3 &&
@@ -182,6 +185,7 @@ function TitleDetailBody({
     onEdit(
       candidate.id,
       {
+        service: draft.service.trim(),
         title: draft.title.trim(),
         objective: draft.objective.trim(),
         audience: draft.audience.trim(),
@@ -287,6 +291,14 @@ function TitleDetailBody({
                 </div>
                 {editing ? (
                   <div className="mt-4 space-y-4 rounded-xl border bg-muted/35 p-5">
+                    <EditField
+                      id={`service-${candidate.id}`}
+                      label="Servicio de Adecco"
+                      value={draft.service}
+                      onChange={(service) =>
+                        setDraft((current) => ({ ...current, service }))
+                      }
+                    />
                     <div className="space-y-2">
                       <Label htmlFor={`title-${candidate.id}`}>Título</Label>
                       <Textarea
@@ -463,6 +475,7 @@ function TitleDetailBody({
 
               <section className="grid gap-4 sm:grid-cols-2">
                 {[
+                  ["Servicio", candidate.service],
                   ["Intención", candidate.intent],
                   ["Público", candidate.audience],
                   ["Enfoque", candidate.focus],

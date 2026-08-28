@@ -4,6 +4,7 @@ describe('buildEditorialBriefSnapshot', () => {
   it('freezes a complete brief without inventing client-owned evidence', () => {
     const brief = buildEditorialBriefSnapshot({
       id: 'title-1',
+      service: 'Facility Management',
       title:
         'Cómo evaluar un servicio de Facility Management en operaciones exigentes',
       slug: 'evaluar-facility-management-operaciones-exigentes',
@@ -17,7 +18,7 @@ describe('buildEditorialBriefSnapshot', () => {
     });
 
     expect(brief).toMatchObject({
-      briefVersion: 2,
+      briefVersion: 3,
       titleProposalId: 'title-1',
       titles: {
         editorialTitle:
@@ -31,7 +32,7 @@ describe('buildEditorialBriefSnapshot', () => {
         intent: 'Comparar',
         audience: 'Gerencias de Operaciones y Recursos Humanos',
       },
-      conversion: { service: null },
+      conversion: { service: 'Facility Management' },
     });
     expect(JSON.stringify(brief)).toContain('fuente primaria');
     expect(JSON.stringify(brief)).toContain('1,200 y 1,800');
