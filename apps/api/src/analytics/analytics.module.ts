@@ -4,6 +4,7 @@ import { AnalyticsSchedulerService } from './analytics-scheduler.service';
 import { AnalyticsService } from './analytics.service';
 import { AnalyticsTokenVaultService } from './analytics-token-vault.service';
 import { GoogleAnalyticsProviderService } from './google-analytics-provider.service';
+import { PublicationUrlValidatorService } from './publication-url-validator.service';
 
 @Module({
   controllers: [AnalyticsController],
@@ -12,6 +13,7 @@ import { GoogleAnalyticsProviderService } from './google-analytics-provider.serv
     AnalyticsSchedulerService,
     AnalyticsTokenVaultService,
     GoogleAnalyticsProviderService,
+    PublicationUrlValidatorService,
   ],
 })
 export class AnalyticsModule {}

@@ -58,15 +58,13 @@ import type {
 } from "./types";
 import { buildArticleInsight, publicationMonthKey } from "./article-insights";
 import { ArticlePerformanceReport } from "./article-performance-report";
+import {
+  publicationCandidateGroups,
+  recommendedPublicationUrl,
+} from "./publication-candidate-groups";
 
 type BusyAction =
-  | "connect"
-  | "configure"
-  | "sync"
-  | "link"
-  | "revoke"
-  | "publication"
-  | null;
+  "connect" | "configure" | "sync" | "link" | "revoke" | "publication" | null;
 
 const PENDING_PUBLICATIONS_PER_PAGE = 6;
 
@@ -186,29 +184,37 @@ export function ResultsDashboard() {
     [publicationMonth, summary],
   );
   const pendingPublications = useMemo(
-    () =>
-      publications.filter((item) => item.status === "PENDING_CONFIRMATION"),
+    () => publications.filter((item) => item.status === "PENDING_CONFIRMATION"),
     [publications],
+  );
+  const pendingGroups = useMemo(
+    () => publicationCandidateGroups(pendingPublications),
+    [pendingPublications],
   );
   const pendingPublicationPages = Math.max(
     1,
-    Math.ceil(
-      pendingPublications.length / PENDING_PUBLICATIONS_PER_PAGE,
-    ),
+    Math.ceil(pendingGroups.length / PENDING_PUBLICATIONS_PER_PAGE),
   );
   const effectivePendingPublicationPage = Math.min(
     pendingPublicationPage,
     pendingPublicationPages,
   );
-  const visiblePendingPublications = useMemo(() => {
+  const visiblePendingGroups = useMemo(() => {
     const first =
-      (effectivePendingPublicationPage - 1) *
-      PENDING_PUBLICATIONS_PER_PAGE;
-    return pendingPublications.slice(
-      first,
-      first + PENDING_PUBLICATIONS_PER_PAGE,
-    );
-  }, [effectivePendingPublicationPage, pendingPublications]);
+      (effectivePendingPublicationPage - 1) * PENDING_PUBLICATIONS_PER_PAGE;
+    return pendingGroups.slice(first, first + PENDING_PUBLICATIONS_PER_PAGE);
+  }, [effectivePendingPublicationPage, pendingGroups]);
+  const confirmationGroup = useMemo(
+    () =>
+      publicationToConfirm
+        ? (pendingGroups.find((group) =>
+            group.publications.some(
+              (publication) => publication.id === publicationToConfirm.id,
+            ),
+          ) ?? null)
+        : null,
+    [pendingGroups, publicationToConfirm],
+  );
 
   const applyClientData = useCallback(
     ({
@@ -482,7 +488,7 @@ export function ResultsDashboard() {
 
   const openPublicationConfirmation = (publication: ContentPublication) => {
     setPublicationToConfirm(publication);
-    setConfirmationUrl(publication.url);
+    setConfirmationUrl(recommendedPublicationUrl(publication));
     setConfirmationDate(publication.publishedAt.slice(0, 10));
   };
 
@@ -544,7 +550,10 @@ export function ResultsDashboard() {
               <select
                 id="analytics-client"
                 value={selectedClientId}
-                onChange={(event) => setSelectedClientId(event.target.value)}
+                onChange={(event) => {
+                  setSelectedClientId(event.target.value);
+                  setPendingPublicationPage(1);
+                }}
                 className="h-9 w-full appearance-none rounded-lg border bg-white px-3 pr-9 text-sm font-medium shadow-sm"
                 disabled={!clients.length}
               >
@@ -986,46 +995,103 @@ export function ResultsDashboard() {
                 ) : null}
               </CardHeader>
               <CardContent className="space-y-3">
-                {visiblePendingPublications.map((publication) => (
-                  <div
-                    key={publication.id}
-                    className="flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50 p-3 sm:flex-row sm:items-center sm:justify-between"
-                  >
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold">
-                        {publication.title}
-                      </p>
-                      <p className="truncate text-xs text-amber-900/75">
-                        {publication.noteId
-                          ? "Coincidencia con una nota de I HERE"
-                          : "Publicada externamente por el equipo web"}
-                        : {publication.url}
-                      </p>
-                      <p className="mt-1 text-xs text-amber-900/75">
-                        Primera fecha observada:{" "}
-                        {formatDate(publication.publishedAt)}
-                      </p>
+                {visiblePendingGroups.map((group) => {
+                  const publication = group.recommended;
+                  const validation = publicationValidationPresentation(
+                    publication.validationStatus,
+                  );
+                  return (
+                    <div
+                      key={group.key}
+                      className={`rounded-xl border p-3 ${validation.container}`}
+                    >
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="line-clamp-2 text-sm font-semibold">
+                              {publication.title}
+                            </p>
+                            <Badge variant="outline">{validation.label}</Badge>
+                            {group.publications.length > 1 ? (
+                              <Badge variant="secondary">
+                                {group.publications.length} variantes agrupadas
+                              </Badge>
+                            ) : null}
+                          </div>
+                          <p className="mt-1 truncate text-xs opacity-75">
+                            {publication.noteId
+                              ? "Coincidencia con una nota de I HERE"
+                              : "Publicada externamente por el equipo web"}
+                            : {recommendedPublicationUrl(publication)}
+                          </p>
+                          <p className="mt-1 text-xs opacity-75">
+                            {publication.validationMessage ??
+                              "La comprobación técnica se realizará en la siguiente sincronización."}
+                          </p>
+                          <p className="mt-1 text-xs opacity-75">
+                            Primera fecha observada:{" "}
+                            {formatDate(publication.publishedAt)}
+                            {publication.httpStatus
+                              ? ` · HTTP ${publication.httpStatus}`
+                              : ""}
+                          </p>
+                        </div>
+                        {canManage ? (
+                          <Button
+                            size="sm"
+                            onClick={() =>
+                              openPublicationConfirmation(publication)
+                            }
+                            disabled={busy === "publication"}
+                          >
+                            <Check />
+                            {group.publications.length > 1
+                              ? "Revisar URL recomendada"
+                              : "Revisar fecha y URL"}
+                          </Button>
+                        ) : (
+                          <Badge variant="outline">Pendiente</Badge>
+                        )}
+                      </div>
+                      {group.publications.length > 1 ? (
+                        <details className="mt-3 rounded-lg border bg-white/65 px-3 py-2 text-xs">
+                          <summary className="cursor-pointer font-semibold">
+                            Ver las {group.publications.length} variantes
+                          </summary>
+                          <div className="mt-2 space-y-2">
+                            {group.publications.map((variant) => (
+                              <div
+                                key={variant.id}
+                                className="rounded-md border bg-white p-2"
+                              >
+                                <p className="font-medium">
+                                  {
+                                    publicationValidationPresentation(
+                                      variant.validationStatus,
+                                    ).label
+                                  }
+                                </p>
+                                <a
+                                  href={variant.url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="mt-0.5 block break-all text-primary hover:underline"
+                                >
+                                  {variant.url}
+                                </a>
+                              </div>
+                            ))}
+                          </div>
+                        </details>
+                      ) : null}
                     </div>
-                    {canManage ? (
-                      <Button
-                        size="sm"
-                        onClick={() =>
-                          openPublicationConfirmation(publication)
-                        }
-                        disabled={busy === "publication"}
-                      >
-                        <Check />
-                        Revisar fecha y URL
-                      </Button>
-                    ) : (
-                      <Badge variant="outline">Pendiente</Badge>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
                 {pendingPublicationPages > 1 ? (
                   <div className="flex flex-col gap-2 rounded-xl border bg-muted/25 px-3 py-2 text-xs sm:flex-row sm:items-center sm:justify-between">
                     <span className="text-muted-foreground">
-                      Mostrando {visiblePendingPublications.length} de{" "}
+                      Mostrando {visiblePendingGroups.length} de{" "}
+                      {pendingGroups.length} grupos ·{" "}
                       {pendingPublications.length} URLs pendientes
                     </span>
                     <div className="flex items-center gap-2">
@@ -1194,6 +1260,31 @@ export function ResultsDashboard() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
+            {publicationToConfirm ? (
+              <div
+                className={`rounded-xl border p-3 text-xs ${publicationValidationPresentation(publicationToConfirm.validationStatus).container}`}
+              >
+                <p className="font-semibold">
+                  {
+                    publicationValidationPresentation(
+                      publicationToConfirm.validationStatus,
+                    ).label
+                  }
+                </p>
+                <p className="mt-1 leading-5">
+                  {publicationToConfirm.validationMessage ??
+                    "La comprobación técnica todavía está pendiente."}
+                </p>
+                {confirmationGroup &&
+                confirmationGroup.publications.length > 1 ? (
+                  <p className="mt-1 leading-5">
+                    Al confirmar esta dirección se archivarán{" "}
+                    {confirmationGroup.publications.length - 1} variantes del
+                    mismo grupo para evitar duplicados.
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
             {sourcesLoading ? (
               <div className="flex items-center gap-2 rounded-xl border bg-muted/40 p-3 text-sm text-muted-foreground">
                 <LoaderCircle className="size-4 animate-spin" />
@@ -1329,10 +1420,7 @@ export function ResultsDashboard() {
             </div>
           </div>
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setPublicationOpen(false)}
-            >
+            <Button variant="outline" onClick={() => setPublicationOpen(false)}>
               Cancelar
             </Button>
             <Button
@@ -1361,8 +1449,8 @@ export function ResultsDashboard() {
             <DialogTitle>Confirmar artículo detectado</DialogTitle>
             <DialogDescription>
               I HERE encontró esta URL en GA4 o Search Console. Revisa la
-              dirección y confirma la fecha real de publicación antes de
-              activar los cortes de 30, 60 y 90 días.
+              dirección y confirma la fecha real de publicación antes de activar
+              los cortes de 30, 60 y 90 días.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -1614,6 +1702,42 @@ function formatMonth(value: string) {
     year: "numeric",
     timeZone: "UTC",
   }).format(new Date(Date.UTC(year, month - 1, 1)));
+}
+function publicationValidationPresentation(
+  status: ContentPublication["validationStatus"],
+) {
+  switch (status) {
+    case "VALID":
+      return {
+        label: "URL válida",
+        container: "border-emerald-200 bg-emerald-50 text-emerald-950",
+      };
+    case "REDIRECTED":
+      return {
+        label: "Redirección válida",
+        container: "border-sky-200 bg-sky-50 text-sky-950",
+      };
+    case "REVIEW":
+      return {
+        label: "Requiere revisión",
+        container: "border-amber-200 bg-amber-50 text-amber-950",
+      };
+    case "BROKEN":
+      return {
+        label: "URL con error",
+        container: "border-rose-200 bg-rose-50 text-rose-950",
+      };
+    case "ERROR":
+      return {
+        label: "Validación no disponible",
+        container: "border-orange-200 bg-orange-50 text-orange-950",
+      };
+    default:
+      return {
+        label: "Validación pendiente",
+        container: "border-slate-200 bg-slate-50 text-slate-950",
+      };
+  }
 }
 function messageFrom(error: unknown) {
   return error instanceof ApiError || error instanceof Error

@@ -21,6 +21,7 @@ import {
   ContentPublicationSource,
   ContentPublicationStatus,
   NoteStatus,
+  PublicationUrlValidationStatus,
   ResultsPortalLinkStatus,
 } from '../generated/prisma/client';
 import { AnalyticsTokenVaultService } from './analytics-token-vault.service';
@@ -36,6 +37,10 @@ import {
   type Ga4MetricRow,
   type GscMetricRow,
 } from './google-analytics-provider.service';
+import {
+  publicationCandidateGroupKeys,
+  PublicationUrlValidatorService,
+} from './publication-url-validator.service';
 import { buildResultsUrl } from './results-url';
 
 const DAY_MS = 86_400_000;
@@ -51,6 +56,7 @@ export class AnalyticsService {
     private readonly config: ConfigService,
     private readonly google: GoogleAnalyticsProviderService,
     private readonly vault: AnalyticsTokenVaultService,
+    private readonly publicationValidator: PublicationUrlValidatorService,
   ) {}
 
   async clients(principal: AuthPrincipal) {
@@ -454,6 +460,18 @@ export class AnalyticsService {
       },
       select: publicationSelect,
     });
+    const archivedVariants = current.candidateGroupKey
+      ? await this.prisma.contentPublication.updateMany({
+          where: {
+            tenantId: principal.tenantId,
+            clientId: current.clientId,
+            id: { not: id },
+            candidateGroupKey: current.candidateGroupKey,
+            status: ContentPublicationStatus.PENDING_CONFIRMATION,
+          },
+          data: { status: ContentPublicationStatus.ARCHIVED },
+        })
+      : { count: 0 };
     await this.audit.record({
       tenantId: principal.tenantId,
       clientId: current.clientId,
@@ -465,7 +483,11 @@ export class AnalyticsService {
       ipAddress: principal.ipAddress,
       userAgent: principal.userAgent,
       before: { url: current.url, publishedAt: current.publishedAt },
-      after: { url, publishedAt },
+      after: {
+        url,
+        publishedAt,
+        archivedGroupedVariants: archivedVariants.count,
+      },
     });
     return updated;
   }
@@ -974,6 +996,78 @@ export class AnalyticsService {
           : {},
       });
     }
+    await this.validatePendingPublicationUrls(connection);
+  }
+
+  private async validatePendingPublicationUrls(
+    connection: Awaited<ReturnType<AnalyticsService['connectionForTenant']>>,
+  ) {
+    const staleBefore = new Date(Date.now() - 7 * DAY_MS);
+    const publications = await this.prisma.contentPublication.findMany({
+      where: {
+        tenantId: connection.tenantId,
+        clientId: connection.clientId,
+        source: ContentPublicationSource.AUTO_DETECTED,
+        status: ContentPublicationStatus.PENDING_CONFIRMATION,
+        OR: [
+          { validationCheckedAt: null },
+          { validationCheckedAt: { lt: staleBefore } },
+          { validationStatus: PublicationUrlValidationStatus.PENDING },
+          { validationStatus: PublicationUrlValidationStatus.ERROR },
+        ],
+      },
+      select: { id: true, url: true },
+      orderBy: [{ validationCheckedAt: 'asc' }, { createdAt: 'asc' }],
+      take: 120,
+    });
+
+    for (let start = 0; start < publications.length; start += 4) {
+      const batch = publications.slice(start, start + 4);
+      await Promise.all(
+        batch.map(async (publication) => {
+          const validation = await this.publicationValidator.validate(
+            publication.url,
+            connection.gscSiteUrl,
+          );
+          await this.prisma.contentPublication.update({
+            where: { id: publication.id },
+            data: validation,
+          });
+        }),
+      );
+    }
+
+    const pending = await this.prisma.contentPublication.findMany({
+      where: {
+        tenantId: connection.tenantId,
+        clientId: connection.clientId,
+        status: ContentPublicationStatus.PENDING_CONFIRMATION,
+      },
+      select: {
+        id: true,
+        url: true,
+        resolvedUrl: true,
+        canonicalUrl: true,
+        candidateGroupKey: true,
+      },
+    });
+    const groupKeys = publicationCandidateGroupKeys(pending);
+    await Promise.all(
+      pending
+        .filter(
+          (publication) =>
+            publication.candidateGroupKey !==
+            (groupKeys.get(publication.id) ?? null),
+        )
+        .map((publication) =>
+          this.prisma.contentPublication.update({
+            where: { id: publication.id },
+            data: {
+              candidateGroupKey: groupKeys.get(publication.id) ?? null,
+            },
+          }),
+        ),
+    );
   }
 
   private async publicationPerformance(tenantId: string, clientId: string) {
@@ -1127,6 +1221,14 @@ const publicationSelect = {
   publishedAt: true,
   source: true,
   status: true,
+  validationStatus: true,
+  httpStatus: true,
+  resolvedUrl: true,
+  canonicalUrl: true,
+  redirectCount: true,
+  validationMessage: true,
+  validationCheckedAt: true,
+  candidateGroupKey: true,
   confirmedAt: true,
   createdAt: true,
   note: {

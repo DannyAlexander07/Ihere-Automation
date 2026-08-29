@@ -87,6 +87,15 @@ export type ContentPublication = {
   publishedAt: string;
   source: "AUTO_DETECTED" | "MANUAL";
   status: "PENDING_CONFIRMATION" | "CONFIRMED" | "ARCHIVED";
+  validationStatus:
+    "PENDING" | "VALID" | "REDIRECTED" | "REVIEW" | "BROKEN" | "ERROR";
+  httpStatus: number | null;
+  resolvedUrl: string | null;
+  canonicalUrl: string | null;
+  redirectCount: number;
+  validationMessage: string | null;
+  validationCheckedAt: string | null;
+  candidateGroupKey: string | null;
   confirmedAt: string | null;
   createdAt: string;
   note: {
