@@ -1260,31 +1260,6 @@ export function ResultsDashboard() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            {publicationToConfirm ? (
-              <div
-                className={`rounded-xl border p-3 text-xs ${publicationValidationPresentation(publicationToConfirm.validationStatus).container}`}
-              >
-                <p className="font-semibold">
-                  {
-                    publicationValidationPresentation(
-                      publicationToConfirm.validationStatus,
-                    ).label
-                  }
-                </p>
-                <p className="mt-1 leading-5">
-                  {publicationToConfirm.validationMessage ??
-                    "La comprobación técnica todavía está pendiente."}
-                </p>
-                {confirmationGroup &&
-                confirmationGroup.publications.length > 1 ? (
-                  <p className="mt-1 leading-5">
-                    Al confirmar esta dirección se archivarán{" "}
-                    {confirmationGroup.publications.length - 1} variantes del
-                    mismo grupo para evitar duplicados.
-                  </p>
-                ) : null}
-              </div>
-            ) : null}
             {sourcesLoading ? (
               <div className="flex items-center gap-2 rounded-xl border bg-muted/40 p-3 text-sm text-muted-foreground">
                 <LoaderCircle className="size-4 animate-spin" />
@@ -1454,6 +1429,31 @@ export function ResultsDashboard() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
+            {publicationToConfirm ? (
+              <div
+                className={`rounded-xl border p-3 text-xs ${publicationValidationPresentation(publicationToConfirm.validationStatus).container}`}
+              >
+                <p className="font-semibold">
+                  {
+                    publicationValidationPresentation(
+                      publicationToConfirm.validationStatus,
+                    ).label
+                  }
+                </p>
+                <p className="mt-1 leading-5">
+                  {publicationToConfirm.validationMessage ??
+                    "La comprobación técnica todavía está pendiente."}
+                </p>
+                {confirmationGroup &&
+                confirmationGroup.publications.length > 1 ? (
+                  <p className="mt-1 leading-5">
+                    Al confirmar esta dirección se archivarán{" "}
+                    {confirmationGroup.publications.length - 1} variantes del
+                    mismo grupo para evitar duplicados.
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
             <div className="rounded-xl border bg-muted/35 p-3">
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Artículo
