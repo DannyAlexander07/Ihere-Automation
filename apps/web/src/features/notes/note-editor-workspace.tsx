@@ -8,6 +8,7 @@ import {
   ArrowRight,
   CheckCircle2,
   FileCheck2,
+  FileDown,
   Eye,
   History,
   ImageIcon,
@@ -65,11 +66,8 @@ import {
   parseQaFindings,
   type NoteVersion,
 } from "./note-history";
-import type { ApiNoteDetail, NoteBlock } from "./types";
-import {
-  ADECCO_CONTACT_URL,
-  editorialCtaActionLabel,
-} from "./editorial-cta";
+import type { ApiNoteDetail, ExportArtifactSummary, NoteBlock } from "./types";
+import { ADECCO_CONTACT_URL, editorialCtaActionLabel } from "./editorial-cta";
 
 type SourceForm = {
   id: string;
@@ -99,12 +97,8 @@ type EditorForm = {
 
 type Decision = "APPROVE" | "REQUEST_CHANGES" | "REJECT";
 
-export function NoteEditorWorkspace({
-  noteId,
-}: {
-  noteId: string;
-}) {
-  const { apiFetch, user } = useAuth();
+export function NoteEditorWorkspace({ noteId }: { noteId: string }) {
+  const { apiFetch, apiFetchResponse, user } = useAuth();
   const [note, setNote] = useState<ApiNoteDetail | null>(null);
   const [form, setForm] = useState<EditorForm | null>(null);
   const [loading, setLoading] = useState(true);
@@ -116,6 +110,9 @@ export function NoteEditorWorkspace({
   const [generationOpen, setGenerationOpen] = useState(false);
   const [generationAutoStart, setGenerationAutoStart] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
+  const [exportingFormat, setExportingFormat] = useState<"DOCX" | "PDF" | null>(
+    null,
+  );
   const [editorMode, setEditorMode] = useState<"preview" | "edit">("edit");
   const [selectedVersionNumber, setSelectedVersionNumber] = useState<
     number | null
@@ -254,6 +251,13 @@ export function NoteEditorWorkspace({
   const canApprove =
     viewingCurrent &&
     hasClientPermission(user, "notes.approve", note?.clientId ?? "");
+  const canExport =
+    viewingCurrent &&
+    (currentVersion?.wordCount ?? 0) > 0 &&
+    hasClientPermission(user, "notes.export", note?.clientId ?? "") &&
+    !["GENERATING", "QA_QUEUED", "QA_RUNNING", "ARCHIVED"].includes(
+      note?.status ?? "ARCHIVED",
+    );
   const latestClientFeedback = (note?.clientReviewLinks ?? []).find(
     (link) =>
       link.version === note?.currentVersion &&
@@ -404,6 +408,63 @@ export function NoteEditorWorkspace({
     }
   };
 
+  const exportNote = async (format: "DOCX" | "PDF") => {
+    if (!note || !canExport) return;
+    setExportingFormat(format);
+    setError(null);
+    setNotice(null);
+    try {
+      const artifact = await apiFetch<ExportArtifactSummary>(
+        `exports/notes/${note.id}`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            expectedVersion: note.currentVersion,
+            format,
+          }),
+        },
+      );
+      let current = artifact;
+      const deadline = Date.now() + 90_000;
+      while (["QUEUED", "GENERATING"].includes(current.status)) {
+        if (Date.now() > deadline) {
+          throw new Error(
+            "El archivo sigue generándose. Podrás descargarlo desde Exportaciones en unos minutos.",
+          );
+        }
+        await wait(1_200);
+        const artifacts = await apiFetch<ExportArtifactSummary[]>("exports");
+        current = artifacts.find((item) => item.id === artifact.id) ?? current;
+      }
+      if (current.status !== "READY") {
+        throw new Error(
+          current.errorMessage ?? "El archivo no pudo terminar de generarse.",
+        );
+      }
+      const response = await apiFetchResponse(`exports/${current.id}/download`);
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download =
+        current.fileName ??
+        `nota-v${current.version}.${format.toLocaleLowerCase("es")}`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 0);
+      setNotice(
+        current.preApproval
+          ? "Descargaste un borrador identificado como no aprobado para revisión del cliente."
+          : "El entregable aprobado se descargó correctamente.",
+      );
+    } catch (reason) {
+      setError(messageFrom(reason));
+    } finally {
+      setExportingFormat(null);
+    }
+  };
+
   if (loading)
     return (
       <Card>
@@ -464,6 +525,34 @@ export function NoteEditorWorkspace({
           </h1>
         </div>
         <div className="flex flex-wrap gap-2">
+          {canExport ? (
+            <>
+              <Button
+                variant="outline"
+                onClick={() => void exportNote("DOCX")}
+                disabled={exportingFormat !== null}
+              >
+                {exportingFormat === "DOCX" ? (
+                  <LoaderCircle className="animate-spin" />
+                ) : (
+                  <FileDown />
+                )}
+                Descargar Word
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => void exportNote("PDF")}
+                disabled={exportingFormat !== null}
+              >
+                {exportingFormat === "PDF" ? (
+                  <LoaderCircle className="animate-spin" />
+                ) : (
+                  <FileDown />
+                )}
+                Descargar PDF
+              </Button>
+            </>
+          ) : null}
           {workflowEditable && viewingCurrent ? (
             <Button
               variant="outline"

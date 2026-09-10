@@ -53,7 +53,23 @@ export type AnalyticsSummary = {
   }>;
   pagePerformance: PagePerformance[];
   publicationPerformance: PublicationPerformance[];
+  recommendations?: AnalyticsRecommendation[];
   methodology: { note: string; ga4: string; gsc: string };
+};
+
+export type AnalyticsRecommendation = {
+  id: string;
+  code: string;
+  title: string;
+  detail: string;
+  targetUrl: string | null;
+  priority: "ALTA" | "MEDIA" | "BAJA";
+  status: "OPEN" | "IMPLEMENTED" | "DISMISSED";
+  observationCount: number;
+  firstReportEnd: string;
+  lastReportEnd: string;
+  implementationNote: string | null;
+  implementedAt: string | null;
 };
 
 export type PagePerformance = {

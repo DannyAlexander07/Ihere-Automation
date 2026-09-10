@@ -55,6 +55,7 @@ export class ExportsService {
         noteId: true,
         version: true,
         format: true,
+        preApproval: true,
         status: true,
         fileName: true,
         mimeType: true,
@@ -94,15 +95,34 @@ export class ExportsService {
     this.assertFormatPermission(principal, input.format);
     const note = await this.prisma.noteDocument.findFirst({
       where: { id: noteId, tenantId: principal.tenantId },
+      include: {
+        versions: {
+          where: { version: input.expectedVersion },
+          select: { wordCount: true },
+          take: 1,
+        },
+      },
     });
     if (!note) throw new NotFoundException('Nota no encontrada.');
     this.assertClientPermission(principal, note.clientId);
-    if (
+    const preApproval =
       note.status !== NoteStatus.APPROVED &&
-      note.status !== NoteStatus.EXPORTED
+      note.status !== NoteStatus.EXPORTED;
+    if (input.format === ExportFormat.HTML && preApproval) {
+      throw new ConflictException(
+        'El HTML se habilita únicamente cuando la nota está aprobada.',
+      );
+    }
+    if (
+      preApproval &&
+      (note.status === NoteStatus.GENERATING ||
+        note.status === NoteStatus.QA_QUEUED ||
+        note.status === NoteStatus.QA_RUNNING ||
+        note.status === NoteStatus.ARCHIVED ||
+        (note.versions[0]?.wordCount ?? 0) < 1)
     ) {
       throw new ConflictException(
-        'Solo una versión aprobada puede exportarse.',
+        'El borrador debe terminar de generarse antes de exportarlo.',
       );
     }
     if (note.currentVersion !== input.expectedVersion) {
@@ -113,10 +133,11 @@ export class ExportsService {
 
     const existing = await this.prisma.exportArtifact.findUnique({
       where: {
-        noteId_version_format: {
+        noteId_version_format_preApproval: {
           noteId,
           version: input.expectedVersion,
           format: input.format,
+          preApproval,
         },
       },
     });
@@ -173,6 +194,7 @@ export class ExportsService {
             noteId,
             version: input.expectedVersion,
             format: input.format,
+            preApproval,
             createdById: principal.userId,
           },
         });
@@ -202,10 +224,11 @@ export class ExportsService {
       ) {
         const concurrent = await this.prisma.exportArtifact.findUnique({
           where: {
-            noteId_version_format: {
+            noteId_version_format_preApproval: {
               noteId,
               version: input.expectedVersion,
               format: input.format,
+              preApproval,
             },
           },
         });
@@ -453,7 +476,12 @@ export class ExportsService {
   private async auditQueued(
     tx: Prisma.TransactionClient,
     artifactId: string,
-    note: { id: string; tenantId: string; clientId: string },
+    note: {
+      id: string;
+      tenantId: string;
+      clientId: string;
+      status: NoteStatus;
+    },
     principal: AuthPrincipal,
     input: CreateExportDto,
     outboxJobId?: string,
@@ -474,6 +502,9 @@ export class ExportsService {
           noteId: note.id,
           version: input.expectedVersion,
           format: input.format,
+          preApproval:
+            note.status !== NoteStatus.APPROVED &&
+            note.status !== NoteStatus.EXPORTED,
           outboxJobId: outboxJobId ?? null,
         },
       },

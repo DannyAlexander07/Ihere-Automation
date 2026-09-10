@@ -15,6 +15,7 @@ import {
   ExternalLink,
   Eye,
   FileCheck2,
+  FileDown,
   Link2,
   Lightbulb,
   LoaderCircle,
@@ -50,6 +51,7 @@ import type { ApiNoteSummary } from "@/features/notes/types";
 import type {
   AnalyticsClient,
   AnalyticsConnectionView,
+  AnalyticsRecommendation,
   AnalyticsSources,
   AnalyticsSummary,
   ContentPublication,
@@ -69,7 +71,7 @@ type BusyAction =
 const PENDING_PUBLICATIONS_PER_PAGE = 6;
 
 export function ResultsDashboard() {
-  const { apiFetch, user } = useAuth();
+  const { apiFetch, apiFetchResponse, user } = useAuth();
   const [clients, setClients] = useState<AnalyticsClient[]>([]);
   const [selectedClientId, setSelectedClientId] = useState("");
   const [summary, setSummary] = useState<AnalyticsSummary | null>(null);
@@ -104,8 +106,17 @@ export function ResultsDashboard() {
   const [confirmationDate, setConfirmationDate] = useState("");
   const [pendingPublicationPage, setPendingPublicationPage] = useState(1);
   const [period, setPeriod] = useState<
-    "7" | "28" | "60" | "90" | "FEB_JUL_2026"
+    "7" | "28" | "60" | "90" | "FEB_JUL_2026" | "CUSTOM"
   >("28");
+  const defaultCustomPeriod = useMemo(() => previousCalendarMonth(), []);
+  const [customStartDate, setCustomStartDate] = useState(
+    defaultCustomPeriod.start,
+  );
+  const [customEndDate, setCustomEndDate] = useState(defaultCustomPeriod.end);
+  const [reportFormat, setReportFormat] = useState<"DOCX" | "PDF" | null>(null);
+  const [updatingRecommendationId, setUpdatingRecommendationId] = useState<
+    string | null
+  >(null);
   const [publicationMonth, setPublicationMonth] = useState("ALL");
 
   const canManage = hasClientPermission(
@@ -136,7 +147,9 @@ export function ResultsDashboard() {
         apiFetch<AnalyticsSummary>(
           period === "FEB_JUL_2026"
             ? `analytics/summary?clientId=${clientId}&startDate=2026-02-01&endDate=2026-07-31`
-            : `analytics/summary?clientId=${clientId}&days=${period}`,
+            : period === "CUSTOM"
+              ? `analytics/summary?clientId=${clientId}&startDate=${customStartDate}&endDate=${customEndDate}`
+              : `analytics/summary?clientId=${clientId}&days=${period}`,
         ),
         includeLinks
           ? apiFetch<ResultsLink[]>(`results-links?clientId=${clientId}`)
@@ -158,7 +171,7 @@ export function ResultsDashboard() {
         nextPublicationNotes,
       };
     },
-    [apiFetch, period, user],
+    [apiFetch, customEndDate, customStartDate, period, user],
   );
 
   const publicationMonths = useMemo(
@@ -522,6 +535,75 @@ export function ResultsDashboard() {
     }
   };
 
+  const downloadReport = async (format: "DOCX" | "PDF") => {
+    if (!summary) return;
+    setReportFormat(format);
+    setError(null);
+    try {
+      const response = await apiFetchResponse("analytics/reports/export", {
+        method: "POST",
+        body: JSON.stringify({
+          clientId: selectedClientId,
+          startDate: summary.period.startDate,
+          endDate: summary.period.endDate,
+          format,
+        }),
+      });
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download =
+        fileNameFromDisposition(response) ??
+        `informe-${summary.period.startDate}-${summary.period.endDate}.${format.toLowerCase()}`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 0);
+      setNotice(
+        `Informe ${format === "DOCX" ? "Word" : "PDF"} descargado con comparativo, recomendaciones y aprendizajes.`,
+      );
+    } catch (reason) {
+      setError(messageFrom(reason));
+    } finally {
+      setReportFormat(null);
+    }
+  };
+
+  const markRecommendation = async (
+    recommendation: AnalyticsRecommendation,
+    status: "IMPLEMENTED" | "OPEN",
+  ) => {
+    const note = window.prompt(
+      status === "IMPLEMENTED"
+        ? "Describe cómo se validó la implementación:"
+        : "Indica por qué se reabre la recomendación:",
+    );
+    if (!note || note.trim().length < 5) return;
+    setUpdatingRecommendationId(recommendation.id);
+    setError(null);
+    try {
+      await apiFetch(`analytics/recommendations/${recommendation.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          clientId: selectedClientId,
+          status,
+          note: note.trim(),
+        }),
+      });
+      await loadClientData();
+      setNotice(
+        status === "IMPLEMENTED"
+          ? "La recomendación quedó validada como implementada."
+          : "La recomendación volvió a seguimiento.",
+      );
+    } catch (reason) {
+      setError(messageFrom(reason));
+    } finally {
+      setUpdatingRecommendationId(null);
+    }
+  };
+
   return (
     <div className="space-y-4 min-[1920px]:space-y-5">
       <section className="overflow-hidden rounded-2xl border bg-[radial-gradient(circle_at_92%_15%,rgba(93,216,193,.19),transparent_24%),radial-gradient(circle_at_76%_0%,rgba(22,142,234,.13),transparent_25%),#fff] p-4 shadow-card sm:p-5 xl:p-6">
@@ -539,7 +621,7 @@ export function ResultsDashboard() {
               enlaces que recibe cada cliente.
             </p>
           </div>
-          <div className="grid min-w-0 gap-2 sm:min-w-[420px] sm:grid-cols-[1fr_150px]">
+          <div className="grid min-w-0 gap-2 sm:min-w-[520px] sm:grid-cols-[1fr_180px]">
             <div className="relative min-w-0">
               <label
                 htmlFor="analytics-client"
@@ -585,11 +667,34 @@ export function ResultsDashboard() {
                 <option value={60}>60 días</option>
                 <option value={90}>90 días</option>
                 <option value="FEB_JUL_2026">Informe feb.–jul. 2026</option>
+                <option value="CUSTOM">Rango personalizado</option>
               </select>
               <ChevronDown className="pointer-events-none absolute bottom-2.5 right-3 size-4 text-muted-foreground" />
             </div>
           </div>
         </div>
+        {period === "CUSTOM" ? (
+          <div className="mt-4 grid gap-2 rounded-xl border bg-white/80 p-3 sm:grid-cols-2 lg:ml-auto lg:max-w-[520px]">
+            <Label className="space-y-1 text-xs">
+              <span>Desde</span>
+              <Input
+                type="date"
+                value={customStartDate}
+                max={customEndDate}
+                onChange={(event) => setCustomStartDate(event.target.value)}
+              />
+            </Label>
+            <Label className="space-y-1 text-xs">
+              <span>Hasta</span>
+              <Input
+                type="date"
+                value={customEndDate}
+                min={customStartDate}
+                onChange={(event) => setCustomEndDate(event.target.value)}
+              />
+            </Label>
+          </div>
+        ) : null}
       </section>
 
       {error ? (
@@ -698,24 +803,42 @@ export function ResultsDashboard() {
                 </div>
               ) : null}
             </div>
-            {canManageLinks ? (
-              <Button
-                className="h-auto min-h-12 rounded-2xl px-5"
-                disabled={!resultsReady}
-                title={
-                  resultsReady
-                    ? "Crear un enlace del periodo seleccionado"
-                    : "Conecta, configura y sincroniza Google antes de compartir el informe"
-                }
-                onClick={() => {
-                  setCreatedUrl("");
-                  setLinkOpen(true);
-                }}
-              >
-                <Link2 />
-                Crear enlace para cliente
-              </Button>
-            ) : null}
+            <div className="flex flex-wrap gap-2 xl:max-w-[390px]">
+              {(["DOCX", "PDF"] as const).map((format) => (
+                <Button
+                  key={format}
+                  variant="outline"
+                  className="h-auto min-h-12 rounded-xl"
+                  onClick={() => void downloadReport(format)}
+                  disabled={!resultsReady || reportFormat !== null}
+                >
+                  {reportFormat === format ? (
+                    <LoaderCircle className="animate-spin" />
+                  ) : (
+                    <FileDown />
+                  )}
+                  {format === "DOCX" ? "Word" : "PDF"}
+                </Button>
+              ))}
+              {canManageLinks ? (
+                <Button
+                  className="h-auto min-h-12 rounded-xl px-5"
+                  disabled={!resultsReady}
+                  title={
+                    resultsReady
+                      ? "Crear un enlace del periodo seleccionado"
+                      : "Conecta, configura y sincroniza Google antes de compartir el informe"
+                  }
+                  onClick={() => {
+                    setCreatedUrl("");
+                    setLinkOpen(true);
+                  }}
+                >
+                  <Link2 />
+                  Crear enlace para cliente
+                </Button>
+              ) : null}
+            </div>
           </section>
 
           <section className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-5 2xl:grid-cols-9">
@@ -770,6 +893,15 @@ export function ResultsDashboard() {
             />
           </section>
 
+          <RecommendationPanel
+            items={summary.recommendations ?? []}
+            canManage={canManage}
+            updatingId={updatingRecommendationId}
+            onStatusChange={(item, status) =>
+              void markRecommendation(item, status)
+            }
+          />
+
           <ArticlePerformanceReport items={summary.pagePerformance} />
 
           <MonthlyPerformanceTable summary={summary} />
@@ -778,7 +910,8 @@ export function ResultsDashboard() {
             <Card className="rounded-2xl shadow-card">
               <CardHeader>
                 <CardTitle>
-                  Tendencia de los últimos {summary.period.days} días
+                  Tendencia del {formatShortDate(summary.period.startDate)} al{" "}
+                  {formatShortDate(summary.period.endDate)}
                 </CardTitle>
                 <p className="text-xs text-muted-foreground">
                   Comparación visual de sesiones y clics con escalas
@@ -1591,6 +1724,129 @@ function delay(milliseconds: number) {
   return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
 }
 
+function RecommendationPanel({
+  items,
+  canManage,
+  updatingId,
+  onStatusChange,
+}: {
+  items: AnalyticsRecommendation[];
+  canManage: boolean;
+  updatingId: string | null;
+  onStatusChange: (
+    item: AnalyticsRecommendation,
+    status: "IMPLEMENTED" | "OPEN",
+  ) => void;
+}) {
+  const open = items.filter((item) => item.status === "OPEN");
+  const implemented = items.filter((item) => item.status === "IMPLEMENTED");
+  return (
+    <Card className="rounded-2xl border-primary/15 shadow-card">
+      <CardHeader className="gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <CardTitle className="flex items-center gap-2">
+            <Lightbulb className="size-4 text-amber-500" />
+            Recomendaciones y seguimiento
+          </CardTitle>
+          <p className="mt-1 text-xs text-muted-foreground">
+            I HERE conserva cada hallazgo; una segunda observación pendiente se
+            convierte en alerta para el cliente.
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Badge variant="outline">{open.length} pendientes</Badge>
+          <Badge variant="secondary">{implemented.length} implementadas</Badge>
+        </div>
+      </CardHeader>
+      <CardContent className="grid gap-3 lg:grid-cols-2">
+        {items.length ? (
+          items.map((item) => {
+            const repeated =
+              item.status === "OPEN" && item.observationCount >= 2;
+            return (
+              <article
+                key={item.id}
+                className={`rounded-xl border p-3 ${
+                  repeated
+                    ? "border-orange-300 bg-orange-50"
+                    : item.status === "IMPLEMENTED"
+                      ? "border-emerald-200 bg-emerald-50/60"
+                      : "bg-white"
+                }`}
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant={repeated ? "destructive" : "outline"}>
+                    {repeated
+                      ? "Pendiente por segunda vez"
+                      : item.status === "IMPLEMENTED"
+                        ? "Implementada"
+                        : "Pendiente"}
+                  </Badge>
+                  <span className="text-[11px] font-semibold text-muted-foreground">
+                    Prioridad {item.priority.toLocaleLowerCase("es")} ·{" "}
+                    {item.observationCount} observación
+                    {item.observationCount === 1 ? "" : "es"}
+                  </span>
+                </div>
+                <h3 className="mt-2 text-sm font-semibold">{item.title}</h3>
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                  {item.detail}
+                </p>
+                {item.implementationNote ? (
+                  <p className="mt-2 rounded-lg bg-white/70 p-2 text-xs">
+                    <strong>Validación:</strong> {item.implementationNote}
+                  </p>
+                ) : null}
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  {item.targetUrl ? (
+                    <Button asChild size="sm" variant="ghost">
+                      <a
+                        href={item.targetUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <ExternalLink /> Abrir evidencia
+                      </a>
+                    </Button>
+                  ) : null}
+                  {canManage ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={updatingId === item.id}
+                      onClick={() =>
+                        onStatusChange(
+                          item,
+                          item.status === "IMPLEMENTED"
+                            ? "OPEN"
+                            : "IMPLEMENTED",
+                        )
+                      }
+                    >
+                      {updatingId === item.id ? (
+                        <LoaderCircle className="animate-spin" />
+                      ) : (
+                        <Check />
+                      )}
+                      {item.status === "IMPLEMENTED"
+                        ? "Reabrir"
+                        : "Validar implementación"}
+                    </Button>
+                  ) : null}
+                </div>
+              </article>
+            );
+          })
+        ) : (
+          <p className="py-6 text-sm text-muted-foreground lg:col-span-2">
+            No se detectaron alertas accionables con los datos disponibles.
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 function MetricTile({
   label,
   value,
@@ -1694,6 +1950,29 @@ function formatDate(value: string) {
     dateStyle: "medium",
     timeZone: "UTC",
   });
+}
+function formatShortDate(value: string) {
+  return new Date(`${value}T00:00:00Z`).toLocaleDateString("es-PE", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+}
+function previousCalendarMonth() {
+  const now = new Date();
+  const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 0));
+  const start = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), 1));
+  return { start: isoDate(start), end: isoDate(end) };
+}
+function isoDate(value: Date) {
+  return value.toISOString().slice(0, 10);
+}
+function fileNameFromDisposition(response: Response) {
+  const header = response.headers.get("content-disposition") ?? "";
+  const encoded = header.match(/filename\*=UTF-8''([^;]+)/i)?.[1];
+  if (encoded) return decodeURIComponent(encoded);
+  return header.match(/filename="([^"]+)"/i)?.[1] ?? null;
 }
 function formatMonth(value: string) {
   const [year, month] = value.split("-").map(Number);

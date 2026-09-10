@@ -11,7 +11,9 @@ import {
   FolderOpen,
   Grid2X2,
   Eye,
+  FileDown,
   List,
+  LoaderCircle,
   MessageSquareWarning,
   PackageCheck,
   RefreshCw,
@@ -42,6 +44,11 @@ type Props = {
   onRevisePackage: (group: TitlePackageGroup) => void;
   canDelete: boolean;
   onDeleteFolder: (folder: EditorialFolderGroup) => void;
+  exportingFolderFormat?: "DOCX" | "PDF" | null;
+  onExportFolder?: (
+    folder: EditorialFolderGroup,
+    format: "DOCX" | "PDF",
+  ) => void;
 };
 
 const dateTime = new Intl.DateTimeFormat("es-PE", {
@@ -59,6 +66,8 @@ export function TitlePackageList({
   onRevisePackage,
   canDelete,
   onDeleteFolder,
+  exportingFolderFormat,
+  onExportFolder,
 }: Props) {
   const folders = useMemo(() => groupTitleFolders(candidates), [candidates]);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
@@ -125,6 +134,31 @@ export function TitlePackageList({
         />
       ) : (
         <div className="space-y-4 p-4">
+          <div className="flex flex-col justify-between gap-3 rounded-xl border bg-secondary/20 p-3 sm:flex-row sm:items-center">
+            <div>
+              <p className="text-sm font-semibold">Entregable de la carpeta</p>
+              <p className="text-xs text-muted-foreground">
+                Incluye todos los títulos, contexto y sustentos de evaluación.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {(["DOCX", "PDF"] as const).map((format) => (
+                <Button
+                  key={format}
+                  variant="outline"
+                  onClick={() => onExportFolder?.(selected, format)}
+                  disabled={exportingFolderFormat !== null}
+                >
+                  {exportingFolderFormat === format ? (
+                    <LoaderCircle className="animate-spin" />
+                  ) : (
+                    <FileDown />
+                  )}
+                  Descargar {format === "DOCX" ? "Word" : "PDF"}
+                </Button>
+              ))}
+            </div>
+          </div>
           {selected.packages.map((group) => (
             <PackageCard
               key={group.id}

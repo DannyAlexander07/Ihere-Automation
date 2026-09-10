@@ -58,6 +58,7 @@ export type ExportArtifactSummary = {
   noteId: string;
   version: number;
   format: "HTML" | "DOCX" | "PDF";
+  preApproval?: boolean;
   status: "QUEUED" | "GENERATING" | "READY" | "FAILED" | "INVALID";
   fileName: string | null;
   mimeType: string | null;
@@ -95,7 +96,10 @@ export type NoteBlock = {
 
 export type ApiNoteDetail = Omit<
   ApiNoteSummary,
-  "versions" | "qaEvaluations" | "titleProposal" | "clientApprovedCurrentVersion"
+  | "versions"
+  | "qaEvaluations"
+  | "titleProposal"
+  | "clientApprovedCurrentVersion"
 > & {
   briefSnapshot: Record<string, unknown>;
   titleProposal: {

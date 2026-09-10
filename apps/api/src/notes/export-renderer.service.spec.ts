@@ -6,6 +6,7 @@ import { ADECCO_CONTACT_URL } from './editorial-cta';
 describe('ExportRendererService', () => {
   const service = new ExportRendererService();
   const base: Omit<ExportInput, 'format'> = {
+    preApproval: false,
     tenantId: 'tenant',
     clientId: 'client',
     clientName: 'Cliente de prueba',
@@ -58,6 +59,17 @@ describe('ExportRendererService', () => {
       '<a href="https://example.com/fuente" rel="noopener noreferrer">fuente oficial</a>',
     );
     expect(html).not.toContain('[fuente oficial](');
+  });
+
+  it('identifica sin ambigüedad un entregable previo a la aprobación', async () => {
+    const rendered = await service.render({
+      ...base,
+      preApproval: true,
+      format: ExportFormat.HTML,
+    });
+    expect(rendered.buffer.toString('utf8')).toContain(
+      'Borrador para revisión · No aprobado',
+    );
   });
 
   it('presenta el CTA institucional de Adecco con una acción humana', async () => {

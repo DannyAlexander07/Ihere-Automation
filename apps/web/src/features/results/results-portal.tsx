@@ -7,7 +7,9 @@ import {
   CalendarDays,
   Clock3,
   Eye,
+  ExternalLink,
   FileCheck2,
+  Lightbulb,
   MousePointerClick,
   Search,
   Sparkles,
@@ -139,6 +141,8 @@ export function ResultsPortal({ data }: { data: PublicResults | null }) {
         <ArticlePerformanceReport items={summary.pagePerformance} />
 
         <MonthlyPerformanceTable summary={summary} />
+
+        <PublicRecommendationPanel items={summary.recommendations ?? []} />
 
         <section className="grid gap-4 xl:grid-cols-[1.45fr_.8fr]">
           <Card className="rounded-2xl shadow-card">
@@ -308,6 +312,88 @@ export function ResultsPortal({ data }: { data: PublicResults | null }) {
         </footer>
       </div>
     </main>
+  );
+}
+
+function PublicRecommendationPanel({
+  items,
+}: {
+  items: NonNullable<AnalyticsSummary["recommendations"]>;
+}) {
+  if (!items.length) return null;
+  const open = items.filter((item) => item.status === "OPEN");
+  const implemented = items.filter((item) => item.status === "IMPLEMENTED");
+
+  return (
+    <Card className="rounded-2xl border-primary/15 shadow-card">
+      <CardHeader className="gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <CardTitle className="flex items-center gap-2">
+            <Lightbulb className="size-4 text-amber-500" />
+            Recomendaciones y seguimiento
+          </CardTitle>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Acciones sugeridas, validación de implementación y alertas cuando
+            una observación continúa pendiente en un segundo periodo.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Badge variant="outline">{open.length} pendientes</Badge>
+          <Badge variant="secondary">{implemented.length} implementadas</Badge>
+        </div>
+      </CardHeader>
+      <CardContent className="grid gap-3 lg:grid-cols-2">
+        {items.map((item) => {
+          const repeated = item.status === "OPEN" && item.observationCount >= 2;
+          return (
+            <article
+              key={item.id}
+              className={`rounded-xl border p-4 ${
+                repeated
+                  ? "border-orange-300 bg-orange-50"
+                  : item.status === "IMPLEMENTED"
+                    ? "border-emerald-200 bg-emerald-50/60"
+                    : "bg-white"
+              }`}
+            >
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant={repeated ? "destructive" : "outline"}>
+                  {repeated
+                    ? "Pendiente por segunda vez"
+                    : item.status === "IMPLEMENTED"
+                      ? "Implementada"
+                      : "Pendiente"}
+                </Badge>
+                <span className="text-[11px] font-semibold text-muted-foreground">
+                  Prioridad {item.priority.toLocaleLowerCase("es")} ·{" "}
+                  {item.observationCount} observación
+                  {item.observationCount === 1 ? "" : "es"}
+                </span>
+              </div>
+              <h3 className="mt-2 text-sm font-semibold">{item.title}</h3>
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                {item.detail}
+              </p>
+              {item.implementationNote ? (
+                <p className="mt-2 rounded-lg bg-white/70 p-2 text-xs">
+                  <strong>Validación:</strong> {item.implementationNote}
+                </p>
+              ) : null}
+              {item.targetUrl ? (
+                <a
+                  href={item.targetUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+                >
+                  <ExternalLink className="size-3" /> Abrir evidencia
+                </a>
+              ) : null}
+            </article>
+          );
+        })}
+      </CardContent>
+    </Card>
   );
 }
 

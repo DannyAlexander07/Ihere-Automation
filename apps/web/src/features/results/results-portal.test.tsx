@@ -13,9 +13,15 @@ describe("ResultsPortal", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("1,250")).toBeInTheDocument();
     expect(screen.getByText("empleos peru")).toBeInTheDocument();
-    expect(screen.getAllByText("Artículo histórico del blog").length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("Artículo histórico del blog").length,
+    ).toBeGreaterThan(0);
     expect(screen.getAllByText("45 s").length).toBeGreaterThan(0);
-    expect(screen.getByText(/no atribuyen causalidad/i)).toBeInTheDocument();
+    expect(screen.getByText(/Fuentes del informe/i)).toBeInTheDocument();
+    expect(
+      screen.getByText("Recomendaciones y seguimiento"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Pendiente por segunda vez")).toBeInTheDocument();
     expect(
       screen.getByRole("img", { name: /tendencia de sesiones y clics/i }),
     ).toBeInTheDocument();
@@ -106,8 +112,24 @@ function fixture(): PublicResults {
         },
       ],
       publicationPerformance: [],
+      recommendations: [
+        {
+          id: "recommendation-1",
+          code: "LOW_CTR",
+          title: "Mejorar CTR de una nota prioritaria",
+          detail: "Revisar el título y la meta description.",
+          targetUrl: "https://www.adecco.com/es-pe/blog/articulo-historico",
+          priority: "ALTA",
+          status: "OPEN",
+          observationCount: 2,
+          firstReportEnd: "2026-07-18",
+          lastReportEnd: "2026-08-15",
+          implementationNote: null,
+          implementedAt: null,
+        },
+      ],
       methodology: {
-        note: "Las variaciones muestran correlación; no atribuyen causalidad a automatización, SEO ni GEO.",
+        note: "Fuentes del informe: GA4 y Search Console.",
         ga4: "Datos de GA4.",
         gsc: "Datos de Search Console.",
       },

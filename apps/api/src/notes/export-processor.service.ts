@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import {
   AuditActorType,
   ExportStatus,
+  ExportFormat,
   NoteStatus,
 } from '../generated/prisma/client';
 import { PrismaService } from '../database/prisma.service';
@@ -31,10 +32,13 @@ export class ExportProcessorService {
     if (artifact.status === ExportStatus.INVALID) {
       return { artifactId, status: 'invalid' };
     }
+    const approved =
+      artifact.note.status === NoteStatus.APPROVED ||
+      artifact.note.status === NoteStatus.EXPORTED;
     if (
       artifact.note.currentVersion !== artifact.version ||
-      (artifact.note.status !== NoteStatus.APPROVED &&
-        artifact.note.status !== NoteStatus.EXPORTED)
+      (artifact.format === ExportFormat.HTML && !approved) ||
+      (!artifact.preApproval && !approved)
     ) {
       await this.invalidateObsolete(artifactId, artifact.note);
       return { artifactId, status: 'invalid-obsolete-version' };
@@ -112,14 +116,16 @@ export class ExportProcessorService {
       if (completed.count !== 1) {
         throw new Error('La exportación cambió antes de finalizar.');
       }
-      await tx.noteDocument.updateMany({
-        where: {
-          id: artifact.noteId,
-          currentVersion: artifact.version,
-          status: { in: [NoteStatus.APPROVED, NoteStatus.EXPORTED] },
-        },
-        data: { status: NoteStatus.EXPORTED },
-      });
+      if (!artifact.preApproval) {
+        await tx.noteDocument.updateMany({
+          where: {
+            id: artifact.noteId,
+            currentVersion: artifact.version,
+            status: { in: [NoteStatus.APPROVED, NoteStatus.EXPORTED] },
+          },
+          data: { status: NoteStatus.EXPORTED },
+        });
+      }
       await tx.auditLog.create({
         data: {
           tenantId: artifact.note.tenantId,
@@ -202,6 +208,7 @@ export class ExportProcessorService {
     noteId: string;
     version: number;
     format: ExportInput['format'];
+    preApproval: boolean;
     note: { tenantId: string; clientId: string };
   }): Promise<ExportInput> {
     const version = await this.prisma.noteVersion.findUnique({
@@ -225,6 +232,7 @@ export class ExportProcessorService {
       : [];
     return {
       format: artifact.format,
+      preApproval: artifact.preApproval,
       tenantId: artifact.note.tenantId,
       clientId: artifact.note.clientId,
       clientName: version.note.client.name,

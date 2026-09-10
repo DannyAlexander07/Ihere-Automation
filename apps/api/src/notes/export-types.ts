@@ -25,6 +25,7 @@ export type ExportSource = {
 
 export type ExportInput = {
   format: ExportFormat;
+  preApproval: boolean;
   tenantId: string;
   clientId: string;
   clientName: string;

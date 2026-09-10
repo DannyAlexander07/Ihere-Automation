@@ -25,10 +25,14 @@ import {
   ResultsPortalLinkStatus,
 } from '../generated/prisma/client';
 import { AnalyticsTokenVaultService } from './analytics-token-vault.service';
+import { AnalyticsRecommendationsService } from './analytics-recommendations.service';
+import { AnalyticsReportRendererService } from './analytics-report-renderer.service';
 import type { ConfigureAnalyticsDto } from './dto/configure-analytics.dto';
 import type { ConfirmPublicationDto } from './dto/confirm-publication.dto';
 import type { CreatePublicationDto } from './dto/create-publication.dto';
 import type { CreateResultsLinkDto } from './dto/create-results-link.dto';
+import type { ExportAnalyticsReportDto } from './dto/export-analytics-report.dto';
+import type { UpdateAnalyticsRecommendationDto } from './dto/update-analytics-recommendation.dto';
 import type { SyncAnalyticsDto } from './dto/sync-analytics.dto';
 import type { StartGoogleOAuthDto } from './dto/start-google-oauth.dto';
 import {
@@ -57,6 +61,8 @@ export class AnalyticsService {
     private readonly google: GoogleAnalyticsProviderService,
     private readonly vault: AnalyticsTokenVaultService,
     private readonly publicationValidator: PublicationUrlValidatorService,
+    private readonly recommendations: AnalyticsRecommendationsService,
+    private readonly reportRenderer: AnalyticsReportRendererService,
   ) {}
 
   async clients(principal: AuthPrincipal) {
@@ -361,6 +367,96 @@ export class AnalyticsService {
       select: publicationSelect,
       orderBy: [{ publishedAt: 'desc' }, { createdAt: 'desc' }],
     });
+  }
+
+  async updateRecommendation(
+    id: string,
+    input: UpdateAnalyticsRecommendationDto,
+    principal: AuthPrincipal,
+  ) {
+    this.assertPermission(principal, 'analytics.manage', input.clientId);
+    const updated = await this.recommendations.update(
+      principal.tenantId,
+      input.clientId,
+      id,
+      input.status,
+      input.note,
+    );
+    await this.audit.record({
+      tenantId: principal.tenantId,
+      clientId: input.clientId,
+      userId: principal.userId,
+      action: 'analytics.recommendation.updated',
+      entityType: 'AnalyticsRecommendation',
+      entityId: id,
+      requestId: principal.requestId,
+      ipAddress: principal.ipAddress,
+      userAgent: principal.userAgent,
+      after: {
+        status: updated.status,
+        implementationNote: updated.implementationNote,
+      },
+    });
+    return updated;
+  }
+
+  async exportReport(
+    input: ExportAnalyticsReportDto,
+    principal: AuthPrincipal,
+  ) {
+    this.assertPermission(principal, 'analytics.read', input.clientId);
+    const client = await this.prisma.client.findFirst({
+      where: { id: input.clientId, tenantId: principal.tenantId, active: true },
+      select: { name: true },
+    });
+    if (!client) throw new NotFoundException('Cliente no encontrado.');
+    const summary = await this.summaryForClient(
+      principal.tenantId,
+      input.clientId,
+      28,
+      input.startDate,
+      input.endDate,
+    );
+    const rendered = await this.reportRenderer.render(
+      {
+        clientName: client.name,
+        generatedAt: new Date(),
+        lastSyncCompletedAt: summary.lastSyncCompletedAt,
+        period: summary.period,
+        metrics: summary.metrics,
+        monthly: summary.monthly,
+        pagePerformance: summary.pagePerformance,
+        recommendations: summary.recommendations,
+        methodology: summary.methodology,
+      },
+      input.format,
+    );
+    const base = client.name
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+    await this.audit.record({
+      tenantId: principal.tenantId,
+      clientId: input.clientId,
+      userId: principal.userId,
+      action: 'analytics.report.downloaded',
+      entityType: 'AnalyticsReport',
+      entityId: `${input.startDate}:${input.endDate}`,
+      requestId: principal.requestId,
+      ipAddress: principal.ipAddress,
+      userAgent: principal.userAgent,
+      metadata: {
+        format: input.format,
+        startDate: input.startDate,
+        endDate: input.endDate,
+      },
+    });
+    return {
+      ...rendered,
+      fileName: `informe-${base || 'cliente'}-${input.startDate}-${input.endDate}.${rendered.extension}`,
+    };
   }
 
   async createPublication(
@@ -926,7 +1022,7 @@ export class AnalyticsService {
       this.publicationPerformance(tenantId, clientId),
     ]);
     const summary = buildAnalyticsSummary(connection, period, ga4, gsc, 'BLOG');
-    return {
+    const completeSummary = {
       ...summary,
       pagePerformance: buildPagePerformance(
         connection,
@@ -937,6 +1033,14 @@ export class AnalyticsService {
       ),
       publicationPerformance,
     };
+    const recommendations = await this.recommendations.reconcile({
+      tenantId,
+      clientId,
+      reportEnd: completeSummary.period.endDate,
+      pages: completeSummary.pagePerformance,
+      publications: publicationPerformance,
+    });
+    return { ...completeSummary, recommendations };
   }
 
   private async discoverPublications(

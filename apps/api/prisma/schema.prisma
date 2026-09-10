@@ -230,68 +230,76 @@ enum PublicationUrlValidationStatus {
   ERROR
 }
 
+enum AnalyticsRecommendationStatus {
+  OPEN
+  IMPLEMENTED
+  DISMISSED
+}
+
 model Tenant {
-  id                      String                   @id @default(uuid()) @db.Uuid
-  code                    String                   @unique @db.VarChar(40)
-  name                    String                   @db.VarChar(160)
-  active                  Boolean                  @default(true)
-  createdAt               DateTime                 @default(now()) @db.Timestamptz(3)
-  updatedAt               DateTime                 @updatedAt @db.Timestamptz(3)
-  clients                 Client[]
-  users                   User[]
-  roles                   Role[]
-  sessions                Session[]
-  titleProposals          TitleProposal[]
-  learningRules           LearningRule[]
-  correctionSignals       CorrectionSignal[]
-  auditLogs               AuditLog[]
-  idempotencyRecords      IdempotencyRecord[]
-  outboxJobs              OutboxJob[]
-  notes                   NoteDocument[]
-  aiGenerationRuns        AiGenerationRun[]
-  clientReviewLinks       ClientReviewLink[]
-  titleReviewLinks        TitleReviewLink[]
-  titlePackageReviewLinks TitlePackageReviewLink[]
-  notePackageReviewLinks  NotePackageReviewLink[]
-  noteImageProposals      NoteImageProposal[]
-  analyticsConnections    AnalyticsConnection[]
-  analyticsOAuthStates    AnalyticsOAuthState[]
-  analyticsSyncRuns       AnalyticsSyncRun[]
-  ga4PageMetrics          Ga4PageMetric[]
-  gscSearchMetrics        GscSearchMetric[]
-  resultsPortalLinks      ResultsPortalLink[]
-  contentPublications     ContentPublication[]
+  id                       String                    @id @default(uuid()) @db.Uuid
+  code                     String                    @unique @db.VarChar(40)
+  name                     String                    @db.VarChar(160)
+  active                   Boolean                   @default(true)
+  createdAt                DateTime                  @default(now()) @db.Timestamptz(3)
+  updatedAt                DateTime                  @updatedAt @db.Timestamptz(3)
+  clients                  Client[]
+  users                    User[]
+  roles                    Role[]
+  sessions                 Session[]
+  titleProposals           TitleProposal[]
+  learningRules            LearningRule[]
+  correctionSignals        CorrectionSignal[]
+  auditLogs                AuditLog[]
+  idempotencyRecords       IdempotencyRecord[]
+  outboxJobs               OutboxJob[]
+  notes                    NoteDocument[]
+  aiGenerationRuns         AiGenerationRun[]
+  clientReviewLinks        ClientReviewLink[]
+  titleReviewLinks         TitleReviewLink[]
+  titlePackageReviewLinks  TitlePackageReviewLink[]
+  notePackageReviewLinks   NotePackageReviewLink[]
+  noteImageProposals       NoteImageProposal[]
+  analyticsConnections     AnalyticsConnection[]
+  analyticsOAuthStates     AnalyticsOAuthState[]
+  analyticsSyncRuns        AnalyticsSyncRun[]
+  ga4PageMetrics           Ga4PageMetric[]
+  gscSearchMetrics         GscSearchMetric[]
+  resultsPortalLinks       ResultsPortalLink[]
+  contentPublications      ContentPublication[]
+  analyticsRecommendations AnalyticsRecommendation[]
 }
 
 model Client {
-  id                      String                   @id @default(uuid()) @db.Uuid
-  tenantId                String                   @db.Uuid
-  slug                    String                   @db.VarChar(80)
-  name                    String                   @db.VarChar(160)
-  active                  Boolean                  @default(true)
-  createdAt               DateTime                 @default(now()) @db.Timestamptz(3)
-  updatedAt               DateTime                 @updatedAt @db.Timestamptz(3)
-  tenant                  Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  userRoles               UserRole[]
-  titleProposals          TitleProposal[]
-  learningRules           LearningRule[]
-  correctionSignals       CorrectionSignal[]
-  auditLogs               AuditLog[]
-  notes                   NoteDocument[]
-  aiGenerationRuns        AiGenerationRun[]
-  clientReviewLinks       ClientReviewLink[]
-  titleReviewLinks        TitleReviewLink[]
-  titlePackageReviewLinks TitlePackageReviewLink[]
-  notePackageReviewLinks  NotePackageReviewLink[]
-  noteImageProposals      NoteImageProposal[]
-  analyticsConnections    AnalyticsConnection[]
-  analyticsOAuthStates    AnalyticsOAuthState[]
-  analyticsSyncRuns       AnalyticsSyncRun[]
-  ga4PageMetrics          Ga4PageMetric[]
-  gscSearchMetrics        GscSearchMetric[]
-  resultsPortalLinks      ResultsPortalLink[]
-  contentPublications     ContentPublication[]
-  workspaces              ClientWorkspace[]
+  id                       String                    @id @default(uuid()) @db.Uuid
+  tenantId                 String                    @db.Uuid
+  slug                     String                    @db.VarChar(80)
+  name                     String                    @db.VarChar(160)
+  active                   Boolean                   @default(true)
+  createdAt                DateTime                  @default(now()) @db.Timestamptz(3)
+  updatedAt                DateTime                  @updatedAt @db.Timestamptz(3)
+  tenant                   Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  userRoles                UserRole[]
+  titleProposals           TitleProposal[]
+  learningRules            LearningRule[]
+  correctionSignals        CorrectionSignal[]
+  auditLogs                AuditLog[]
+  notes                    NoteDocument[]
+  aiGenerationRuns         AiGenerationRun[]
+  clientReviewLinks        ClientReviewLink[]
+  titleReviewLinks         TitleReviewLink[]
+  titlePackageReviewLinks  TitlePackageReviewLink[]
+  notePackageReviewLinks   NotePackageReviewLink[]
+  noteImageProposals       NoteImageProposal[]
+  analyticsConnections     AnalyticsConnection[]
+  analyticsOAuthStates     AnalyticsOAuthState[]
+  analyticsSyncRuns        AnalyticsSyncRun[]
+  ga4PageMetrics           Ga4PageMetric[]
+  gscSearchMetrics         GscSearchMetric[]
+  resultsPortalLinks       ResultsPortalLink[]
+  contentPublications      ContentPublication[]
+  analyticsRecommendations AnalyticsRecommendation[]
+  workspaces               ClientWorkspace[]
 
   @@unique([tenantId, slug])
   @@index([tenantId, active])
@@ -688,23 +696,23 @@ model OutboxJob {
 }
 
 model NoteDocument {
-  id                  String               @id @default(uuid()) @db.Uuid
-  tenantId            String               @db.Uuid
-  clientId            String               @db.Uuid
-  titleProposalId     String               @unique @db.Uuid
-  status              NoteStatus           @default(DRAFT)
-  currentVersion      Int                  @default(1)
+  id                  String                  @id @default(uuid()) @db.Uuid
+  tenantId            String                  @db.Uuid
+  clientId            String                  @db.Uuid
+  titleProposalId     String                  @unique @db.Uuid
+  status              NoteStatus              @default(DRAFT)
+  currentVersion      Int                     @default(1)
   briefSnapshot       Json
-  createdById         String               @db.Uuid
-  approvedById        String?              @db.Uuid
-  approvedAt          DateTime?            @db.Timestamptz(3)
-  createdAt           DateTime             @default(now()) @db.Timestamptz(3)
-  updatedAt           DateTime             @updatedAt @db.Timestamptz(3)
-  tenant              Tenant               @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  client              Client               @relation(fields: [clientId], references: [id], onDelete: Restrict)
-  titleProposal       TitleProposal        @relation(fields: [titleProposalId], references: [id], onDelete: Restrict)
-  createdBy           User                 @relation("NoteCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
-  approvedBy          User?                @relation("NoteApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+  createdById         String                  @db.Uuid
+  approvedById        String?                 @db.Uuid
+  approvedAt          DateTime?               @db.Timestamptz(3)
+  createdAt           DateTime                @default(now()) @db.Timestamptz(3)
+  updatedAt           DateTime                @updatedAt @db.Timestamptz(3)
+  tenant              Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  client              Client                  @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  titleProposal       TitleProposal           @relation(fields: [titleProposalId], references: [id], onDelete: Restrict)
+  createdBy           User                    @relation("NoteCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  approvedBy          User?                   @relation("NoteApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
   versions            NoteVersion[]
   decisions           NoteDecision[]
   qaEvaluations       NoteQaEvaluation[]
@@ -721,32 +729,32 @@ model NoteDocument {
 }
 
 model NoteVersion {
-  id              String           @id @default(uuid()) @db.Uuid
-  noteId          String           @db.Uuid
-  version         Int
-  title           String           @db.VarChar(220)
-  metaTitle       String?          @db.VarChar(220)
-  metaDescription String?          @db.VarChar(320)
-  slug            String?          @db.VarChar(240)
-  excerpt         String?          @db.VarChar(800)
-  content         Json
-  wordCount       Int              @default(0)
-  contentHash     String           @db.Char(64)
-  source          VersionSource
-  correctionType  CorrectionType?
-  changeReason    String?          @db.VarChar(1000)
-  authorName      String?          @db.VarChar(160)
-  authorRole      String?          @db.VarChar(160)
-  ctaText         String?          @db.VarChar(300)
-  ctaUrl          String?          @db.VarChar(1000)
-  internalLinks   Json             @default("[]")
-  createdById     String           @db.Uuid
-  generationRunId String?          @db.Uuid
-  createdAt       DateTime         @default(now()) @db.Timestamptz(3)
-  note            NoteDocument     @relation(fields: [noteId], references: [id], onDelete: Cascade)
-  createdBy       User             @relation(fields: [createdById], references: [id], onDelete: Restrict)
-  sources         NoteSource[]
-  generationRun   AiGenerationRun? @relation(fields: [generationRunId], references: [id], onDelete: SetNull)
+  id                String             @id @default(uuid()) @db.Uuid
+  noteId            String             @db.Uuid
+  version           Int
+  title             String             @db.VarChar(220)
+  metaTitle         String?            @db.VarChar(220)
+  metaDescription   String?            @db.VarChar(320)
+  slug              String?            @db.VarChar(240)
+  excerpt           String?            @db.VarChar(800)
+  content           Json
+  wordCount         Int                @default(0)
+  contentHash       String             @db.Char(64)
+  source            VersionSource
+  correctionType    CorrectionType?
+  changeReason      String?            @db.VarChar(1000)
+  authorName        String?            @db.VarChar(160)
+  authorRole        String?            @db.VarChar(160)
+  ctaText           String?            @db.VarChar(300)
+  ctaUrl            String?            @db.VarChar(1000)
+  internalLinks     Json               @default("[]")
+  createdById       String             @db.Uuid
+  generationRunId   String?            @db.Uuid
+  createdAt         DateTime           @default(now()) @db.Timestamptz(3)
+  note              NoteDocument       @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  createdBy         User               @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  sources           NoteSource[]
+  generationRun     AiGenerationRun?   @relation(fields: [generationRunId], references: [id], onDelete: SetNull)
   correctionSignals CorrectionSignal[]
 
   @@unique([noteId, version])
@@ -818,32 +826,32 @@ model ClientReviewDecision {
 }
 
 model NotePackageReviewLink {
-  id                String                 @id @default(uuid()) @db.Uuid
-  tenantId          String                 @db.Uuid
-  clientId          String                 @db.Uuid
-  generationRunId   String                 @db.Uuid
-  tokenHash         String                 @unique @db.Char(64)
-  status            ClientReviewLinkStatus @default(ACTIVE)
-  recipientName     String                 @db.VarChar(160)
-  recipientEmail    String                 @db.VarChar(254)
-  expiresAt         DateTime               @db.Timestamptz(3)
-  maxViews          Int                    @default(100)
-  viewCount         Int                    @default(0)
-  lastViewedAt      DateTime?              @db.Timestamptz(3)
-  createdById       String                 @db.Uuid
-  revokedById       String?                @db.Uuid
-  revokedAt         DateTime?              @db.Timestamptz(3)
-  sentByEmail       String?                @db.VarChar(254)
-  emailSubject      String?                @db.VarChar(300)
-  externalMessageId String?                @db.VarChar(500)
-  sentAt            DateTime?              @db.Timestamptz(3)
-  createdAt         DateTime               @default(now()) @db.Timestamptz(3)
-  updatedAt         DateTime               @updatedAt @db.Timestamptz(3)
-  tenant            Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  client            Client                 @relation(fields: [clientId], references: [id], onDelete: Restrict)
-  generationRun     AiGenerationRun        @relation(fields: [generationRunId], references: [id], onDelete: Restrict)
-  createdBy         User                   @relation("NotePackageReviewLinkCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
-  revokedBy         User?                  @relation("NotePackageReviewLinkRevokedBy", fields: [revokedById], references: [id], onDelete: SetNull)
+  id                String                  @id @default(uuid()) @db.Uuid
+  tenantId          String                  @db.Uuid
+  clientId          String                  @db.Uuid
+  generationRunId   String                  @db.Uuid
+  tokenHash         String                  @unique @db.Char(64)
+  status            ClientReviewLinkStatus  @default(ACTIVE)
+  recipientName     String                  @db.VarChar(160)
+  recipientEmail    String                  @db.VarChar(254)
+  expiresAt         DateTime                @db.Timestamptz(3)
+  maxViews          Int                     @default(100)
+  viewCount         Int                     @default(0)
+  lastViewedAt      DateTime?               @db.Timestamptz(3)
+  createdById       String                  @db.Uuid
+  revokedById       String?                 @db.Uuid
+  revokedAt         DateTime?               @db.Timestamptz(3)
+  sentByEmail       String?                 @db.VarChar(254)
+  emailSubject      String?                 @db.VarChar(300)
+  externalMessageId String?                 @db.VarChar(500)
+  sentAt            DateTime?               @db.Timestamptz(3)
+  createdAt         DateTime                @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime                @updatedAt @db.Timestamptz(3)
+  tenant            Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  client            Client                  @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  generationRun     AiGenerationRun         @relation(fields: [generationRunId], references: [id], onDelete: Restrict)
+  createdBy         User                    @relation("NotePackageReviewLinkCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  revokedBy         User?                   @relation("NotePackageReviewLinkRevokedBy", fields: [revokedById], references: [id], onDelete: SetNull)
   items             NotePackageReviewItem[]
 
   @@index([tenantId, clientId, status])
@@ -852,13 +860,13 @@ model NotePackageReviewLink {
 }
 
 model NotePackageReviewItem {
-  id       String                    @id @default(uuid()) @db.Uuid
-  linkId   String                    @db.Uuid
-  noteId   String                    @db.Uuid
+  id       String                     @id @default(uuid()) @db.Uuid
+  linkId   String                     @db.Uuid
+  noteId   String                     @db.Uuid
   version  Int
   position Int
-  link     NotePackageReviewLink     @relation(fields: [linkId], references: [id], onDelete: Cascade)
-  note     NoteDocument              @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  link     NotePackageReviewLink      @relation(fields: [linkId], references: [id], onDelete: Cascade)
+  note     NoteDocument               @relation(fields: [noteId], references: [id], onDelete: Cascade)
   decision NotePackageReviewDecision?
 
   @@unique([linkId, noteId])
@@ -950,6 +958,7 @@ model ExportArtifact {
   noteId            String       @db.Uuid
   version           Int
   format            ExportFormat
+  preApproval       Boolean      @default(false)
   status            ExportStatus @default(QUEUED)
   fileName          String?      @db.VarChar(300)
   storageKey        String?      @db.VarChar(1000)
@@ -971,7 +980,7 @@ model ExportArtifact {
   createdBy         User         @relation("ExportCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
   verifiedBy        User?        @relation("ExportVerifiedBy", fields: [verifiedById], references: [id], onDelete: SetNull)
 
-  @@unique([noteId, version, format])
+  @@unique([noteId, version, format, preApproval])
   @@index([noteId, createdAt])
   @@index([status, createdAt])
 }
@@ -1183,34 +1192,34 @@ model GscSearchMetric {
 }
 
 model ContentPublication {
-  id                      String                         @id @default(uuid()) @db.Uuid
-  tenantId                String                         @db.Uuid
-  clientId                String                         @db.Uuid
-  noteId                  String?                        @db.Uuid
-  title                   String                         @db.VarChar(500)
-  url                     String                         @db.VarChar(2048)
-  pagePath                String                         @db.VarChar(2048)
-  publishedAt             DateTime                       @db.Date
-  source                  ContentPublicationSource
-  status                  ContentPublicationStatus       @default(PENDING_CONFIRMATION)
-  validationStatus        PublicationUrlValidationStatus @default(PENDING)
-  httpStatus              Int?
-  resolvedUrl             String?                        @db.VarChar(2048)
-  canonicalUrl            String?                        @db.VarChar(2048)
-  redirectCount           Int                            @default(0)
-  validationMessage       String?                        @db.VarChar(1000)
-  validationCheckedAt     DateTime?                      @db.Timestamptz(3)
-  candidateGroupKey       String?                        @db.VarChar(64)
-  createdById             String?                        @db.Uuid
-  confirmedById           String?                        @db.Uuid
-  confirmedAt             DateTime?                      @db.Timestamptz(3)
-  createdAt               DateTime                       @default(now()) @db.Timestamptz(3)
-  updatedAt               DateTime                       @updatedAt @db.Timestamptz(3)
-  tenant                  Tenant                         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  client                  Client                         @relation(fields: [clientId], references: [id], onDelete: Restrict)
-  note                    NoteDocument?                  @relation(fields: [noteId], references: [id], onDelete: SetNull)
-  createdBy               User?                          @relation("ContentPublicationCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  confirmedBy             User?                          @relation("ContentPublicationConfirmedBy", fields: [confirmedById], references: [id], onDelete: SetNull)
+  id                  String                         @id @default(uuid()) @db.Uuid
+  tenantId            String                         @db.Uuid
+  clientId            String                         @db.Uuid
+  noteId              String?                        @db.Uuid
+  title               String                         @db.VarChar(500)
+  url                 String                         @db.VarChar(2048)
+  pagePath            String                         @db.VarChar(2048)
+  publishedAt         DateTime                       @db.Date
+  source              ContentPublicationSource
+  status              ContentPublicationStatus       @default(PENDING_CONFIRMATION)
+  validationStatus    PublicationUrlValidationStatus @default(PENDING)
+  httpStatus          Int?
+  resolvedUrl         String?                        @db.VarChar(2048)
+  canonicalUrl        String?                        @db.VarChar(2048)
+  redirectCount       Int                            @default(0)
+  validationMessage   String?                        @db.VarChar(1000)
+  validationCheckedAt DateTime?                      @db.Timestamptz(3)
+  candidateGroupKey   String?                        @db.VarChar(64)
+  createdById         String?                        @db.Uuid
+  confirmedById       String?                        @db.Uuid
+  confirmedAt         DateTime?                      @db.Timestamptz(3)
+  createdAt           DateTime                       @default(now()) @db.Timestamptz(3)
+  updatedAt           DateTime                       @updatedAt @db.Timestamptz(3)
+  tenant              Tenant                         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  client              Client                         @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  note                NoteDocument?                  @relation(fields: [noteId], references: [id], onDelete: SetNull)
+  createdBy           User?                          @relation("ContentPublicationCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  confirmedBy         User?                          @relation("ContentPublicationConfirmedBy", fields: [confirmedById], references: [id], onDelete: SetNull)
 
   @@unique([clientId, url])
   @@index([tenantId, clientId, status, publishedAt])
@@ -1219,28 +1228,53 @@ model ContentPublication {
   @@index([noteId])
 }
 
+model AnalyticsRecommendation {
+  id                 String                        @id @default(uuid()) @db.Uuid
+  tenantId           String                        @db.Uuid
+  clientId           String                        @db.Uuid
+  fingerprint        String                        @db.Char(64)
+  code               String                        @db.VarChar(80)
+  title              String                        @db.VarChar(300)
+  detail             String                        @db.VarChar(1400)
+  targetUrl          String?                       @db.VarChar(2048)
+  priority           String                        @db.VarChar(20)
+  status             AnalyticsRecommendationStatus @default(OPEN)
+  observationCount   Int                           @default(1)
+  firstReportEnd     DateTime                      @db.Date
+  lastReportEnd      DateTime                      @db.Date
+  implementationNote String?                       @db.VarChar(1400)
+  implementedAt      DateTime?                     @db.Timestamptz(3)
+  createdAt          DateTime                      @default(now()) @db.Timestamptz(3)
+  updatedAt          DateTime                      @updatedAt @db.Timestamptz(3)
+  tenant             Tenant                        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  client             Client                        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, fingerprint])
+  @@index([tenantId, clientId, status, lastReportEnd])
+}
+
 model ResultsPortalLink {
-  id             String                  @id @default(uuid()) @db.Uuid
-  tenantId       String                  @db.Uuid
-  clientId       String                  @db.Uuid
-  tokenHash      String                  @unique @db.Char(64)
-  recipientName  String                  @db.VarChar(160)
-  recipientEmail String                  @db.VarChar(254)
-  reportStartDate DateTime               @db.Date
-  reportEndDate   DateTime               @db.Date
-  status         ResultsPortalLinkStatus @default(ACTIVE)
-  expiresAt      DateTime                @db.Timestamptz(3)
-  lastViewedAt   DateTime?               @db.Timestamptz(3)
-  viewCount      Int                     @default(0)
-  maxViews       Int                     @default(1000)
-  createdById    String                  @db.Uuid
-  revokedById    String?                 @db.Uuid
-  revokedAt      DateTime?               @db.Timestamptz(3)
-  createdAt      DateTime                @default(now()) @db.Timestamptz(3)
-  tenant         Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  client         Client                  @relation(fields: [clientId], references: [id], onDelete: Restrict)
-  createdBy      User                    @relation("ResultsPortalLinkCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
-  revokedBy      User?                   @relation("ResultsPortalLinkRevokedBy", fields: [revokedById], references: [id], onDelete: SetNull)
+  id              String                  @id @default(uuid()) @db.Uuid
+  tenantId        String                  @db.Uuid
+  clientId        String                  @db.Uuid
+  tokenHash       String                  @unique @db.Char(64)
+  recipientName   String                  @db.VarChar(160)
+  recipientEmail  String                  @db.VarChar(254)
+  reportStartDate DateTime                @db.Date
+  reportEndDate   DateTime                @db.Date
+  status          ResultsPortalLinkStatus @default(ACTIVE)
+  expiresAt       DateTime                @db.Timestamptz(3)
+  lastViewedAt    DateTime?               @db.Timestamptz(3)
+  viewCount       Int                     @default(0)
+  maxViews        Int                     @default(1000)
+  createdById     String                  @db.Uuid
+  revokedById     String?                 @db.Uuid
+  revokedAt       DateTime?               @db.Timestamptz(3)
+  createdAt       DateTime                @default(now()) @db.Timestamptz(3)
+  tenant          Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  client          Client                  @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  createdBy       User                    @relation("ResultsPortalLinkCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  revokedBy       User?                   @relation("ResultsPortalLinkRevokedBy", fields: [revokedById], references: [id], onDelete: SetNull)
 
   @@index([tenantId, clientId, status, expiresAt])
 }

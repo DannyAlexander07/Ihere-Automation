@@ -91,7 +91,7 @@ export class ExportRendererService {
 <body>
   <article>
     <header>
-      <p class="kicker">${escapeHtml(input.clientName)} · Contenido aprobado</p>
+      <p class="kicker">${escapeHtml(input.clientName)} · ${input.preApproval ? 'Borrador para revisión · No aprobado' : 'Contenido aprobado'}</p>
       <h1>${escapeHtml(input.title)}</h1>
       ${input.excerpt ? `<p class="meta">${escapeHtml(input.excerpt)}</p>` : ''}
       ${input.authorName ? `<p class="meta"><strong>${escapeHtml(input.authorName)}</strong>${input.authorRole ? ` · ${escapeHtml(input.authorRole)}` : ''}</p>` : ''}
@@ -128,7 +128,7 @@ export class ExportRendererService {
         spacing: { after: 80 },
         children: [
           new TextRun({
-            text: `${input.clientName.toUpperCase()} · CONTENIDO APROBADO`,
+            text: `${input.clientName.toUpperCase()} · ${input.preApproval ? 'BORRADOR PARA REVISIÓN · NO APROBADO' : 'CONTENIDO APROBADO'}`,
             bold: true,
             color: colors.blue,
             size: 20,
@@ -485,9 +485,12 @@ export class ExportRendererService {
       .font('Helvetica-Bold')
       .fontSize(10)
       .fillColor('#1687E8')
-      .text(`${input.clientName.toUpperCase()} · CONTENIDO APROBADO`, {
-        characterSpacing: 1.1,
-      });
+      .text(
+        `${input.clientName.toUpperCase()} · ${input.preApproval ? 'BORRADOR PARA REVISIÓN · NO APROBADO' : 'CONTENIDO APROBADO'}`,
+        {
+          characterSpacing: 1.1,
+        },
+      );
     document
       .moveDown(0.7)
       .font('Helvetica-Bold')

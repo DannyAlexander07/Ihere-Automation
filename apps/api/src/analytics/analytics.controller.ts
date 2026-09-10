@@ -24,9 +24,11 @@ import { ConfigureAnalyticsDto } from './dto/configure-analytics.dto';
 import { ConfirmPublicationDto } from './dto/confirm-publication.dto';
 import { CreatePublicationDto } from './dto/create-publication.dto';
 import { CreateResultsLinkDto } from './dto/create-results-link.dto';
+import { ExportAnalyticsReportDto } from './dto/export-analytics-report.dto';
 import { GoogleOAuthCallbackDto } from './dto/google-oauth-callback.dto';
 import { StartGoogleOAuthDto } from './dto/start-google-oauth.dto';
 import { SyncAnalyticsDto } from './dto/sync-analytics.dto';
+import { UpdateAnalyticsRecommendationDto } from './dto/update-analytics-recommendation.dto';
 
 @ApiTags('Resultados y analítica')
 @Controller()
@@ -133,6 +135,39 @@ export class AnalyticsController {
     @CurrentUser() principal: AuthPrincipal,
   ) {
     return this.analytics.publications(input.clientId, principal);
+  }
+
+  @Post('analytics/reports/export')
+  @ApiBearerAuth()
+  @RequirePermissions('analytics.read')
+  async exportReport(
+    @Body() input: ExportAnalyticsReportDto,
+    @CurrentUser() principal: AuthPrincipal,
+    @Res() reply: FastifyReply,
+  ) {
+    const file = await this.analytics.exportReport(input, principal);
+    const fallback = file.fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
+    return reply
+      .header('content-type', file.mimeType)
+      .header('content-length', String(file.buffer.byteLength))
+      .header(
+        'content-disposition',
+        `attachment; filename="${fallback}"; filename*=UTF-8''${encodeURIComponent(file.fileName)}`,
+      )
+      .header('cache-control', 'private, no-store')
+      .header('x-content-type-options', 'nosniff')
+      .send(file.buffer);
+  }
+
+  @Patch('analytics/recommendations/:id')
+  @ApiBearerAuth()
+  @RequirePermissions('analytics.manage')
+  updateRecommendation(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() input: UpdateAnalyticsRecommendationDto,
+    @CurrentUser() principal: AuthPrincipal,
+  ) {
+    return this.analytics.updateRecommendation(id, input, principal);
   }
 
   @Post('analytics/publications')

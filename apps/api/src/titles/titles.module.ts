@@ -8,6 +8,7 @@ import { TitleEvaluationQueueService } from './title-evaluation-queue.service';
 import { TitleEvaluationWorkerService } from './title-evaluation-worker.service';
 import { TitleRuleEvaluatorService } from './title-rule-evaluator.service';
 import { TitleSimilarityService } from './title-similarity.service';
+import { TitleFolderExportService } from './title-folder-export.service';
 
 @Module({
   controllers: [TitlesController],
@@ -15,6 +16,7 @@ import { TitleSimilarityService } from './title-similarity.service';
     TitlesService,
     TitleWorkflowService,
     TitleSimilarityService,
+    TitleFolderExportService,
     TitleRuleEvaluatorService,
     TitleEvaluationProcessorService,
     TitleEvaluationQueueService,

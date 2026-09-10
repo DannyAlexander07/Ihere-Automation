@@ -90,7 +90,7 @@ const duplicateMap: Record<
 };
 
 export function TitleWorkspace() {
-  const { apiFetch, user } = useAuth();
+  const { apiFetch, apiFetchResponse, user } = useAuth();
   const [clients, setClients] = useState<ApiClientSummary[]>([]);
   const [clientId, setClientId] = useState("");
   const [candidates, setCandidates] = useState<TitleCandidate[]>([]);
@@ -115,6 +115,9 @@ export function TitleWorkspace() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [exportingFolderFormat, setExportingFolderFormat] = useState<
+    "DOCX" | "PDF" | null
+  >(null);
 
   const owner = user?.displayName ?? "Usuario autorizado";
   const selected =
@@ -584,6 +587,43 @@ export function TitleWorkspace() {
     }
   };
 
+  const exportFolder = async (
+    folder: EditorialFolderGroup,
+    format: "DOCX" | "PDF",
+  ) => {
+    setExportingFolderFormat(format);
+    setNotice(null);
+    try {
+      const response = await apiFetchResponse("titles/export-folder", {
+        method: "POST",
+        body: JSON.stringify({
+          clientId: folder.clientId,
+          folderKey: folder.key,
+          format,
+        }),
+      });
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download =
+        fileNameFromDisposition(response) ?? `titulos.${format.toLowerCase()}`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 0);
+      setNotice({
+        tone: "success",
+        title: "Entregable descargado",
+        description: `La carpeta completa se exportó en ${format === "DOCX" ? "Word" : "PDF"} con sus sustentos.`,
+      });
+    } catch (error) {
+      showError("No se pudo exportar la carpeta", error);
+    } finally {
+      setExportingFolderFormat(null);
+    }
+  };
+
   const clearFilters = () => {
     setSearch("");
     setStatusFilter("all");
@@ -808,6 +848,8 @@ export function TitleWorkspace() {
           onDeleteFolder={(folder) =>
             setDeleteTarget({ kind: "folder", folder })
           }
+          exportingFolderFormat={exportingFolderFormat}
+          onExportFolder={(folder, format) => void exportFolder(folder, format)}
         />
       )}
 
@@ -894,6 +936,13 @@ export function TitleWorkspace() {
       <TitleRulesDialog open={rulesOpen} onOpenChange={setRulesOpen} />
     </div>
   );
+}
+
+function fileNameFromDisposition(response: Response) {
+  const header = response.headers.get("content-disposition") ?? "";
+  const encoded = header.match(/filename\*=UTF-8''([^;]+)/i)?.[1];
+  if (encoded) return decodeURIComponent(encoded);
+  return header.match(/filename="([^"]+)"/i)?.[1] ?? null;
 }
 
 function messageFrom(error: unknown): string {
