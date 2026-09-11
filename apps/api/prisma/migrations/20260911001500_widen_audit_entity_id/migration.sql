@@ -1,0 +1,2 @@
+ALTER TABLE "AuditLog"
+  ALTER COLUMN "entityId" TYPE VARCHAR(300);

@@ -641,7 +641,7 @@ model AuditLog {
   actorType  AuditActorType
   action     String         @db.VarChar(160)
   entityType String         @db.VarChar(100)
-  entityId   String?        @db.VarChar(100)
+  entityId   String?        @db.VarChar(300)
   requestId  String?        @db.VarChar(100)
   ipAddress  String?        @db.VarChar(64)
   userAgent  String?        @db.VarChar(500)

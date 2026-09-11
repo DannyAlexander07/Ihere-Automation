@@ -6,7 +6,7 @@ export class ExportTitleFolderDto {
 
   @IsString()
   @MinLength(3)
-  @MaxLength(500)
+  @MaxLength(300)
   folderKey!: string;
 
   @IsIn(['DOCX', 'PDF'])
