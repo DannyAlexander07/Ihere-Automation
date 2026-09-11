@@ -54,7 +54,25 @@ export type AnalyticsSummary = {
   pagePerformance: PagePerformance[];
   publicationPerformance: PublicationPerformance[];
   recommendations?: AnalyticsRecommendation[];
+  actionPlan?: AnalyticsActionPlanItem[];
   methodology: { note: string; ga4: string; gsc: string };
+};
+
+export type AnalyticsActionPlanItem = {
+  id: "measurement" | "editorial" | "technical";
+  front: string;
+  priority: "ALTA" | "MEDIA" | "BAJA";
+  status: "PENDING" | "IN_PROGRESS" | "VALIDATED" | "DISMISSED";
+  moodOwner: string;
+  moodAction: string;
+  clientOwner: string;
+  clientAction: string;
+  dependency: string;
+  dueDate: string;
+  evidence: string;
+  validation: string;
+  recommendationCount: number;
+  repeatedCount: number;
 };
 
 export type AnalyticsRecommendation = {

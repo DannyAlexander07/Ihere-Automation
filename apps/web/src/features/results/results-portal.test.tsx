@@ -21,6 +21,13 @@ describe("ResultsPortal", () => {
     expect(
       screen.getByText("Recomendaciones y seguimiento"),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Plan de acción" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Mood · SEO y Contenidos")).toBeInTheDocument();
+    expect(
+      screen.getByText("Marketing/Contenido de Adecco Perú"),
+    ).toBeInTheDocument();
     expect(screen.getByText("Pendiente por segunda vez")).toBeInTheDocument();
     expect(
       screen.getByRole("img", { name: /tendencia de sesiones y clics/i }),
@@ -126,6 +133,24 @@ function fixture(): PublicResults {
           lastReportEnd: "2026-08-15",
           implementationNote: null,
           implementedAt: null,
+        },
+      ],
+      actionPlan: [
+        {
+          id: "editorial",
+          front: "Estándar editorial y optimización de contenidos",
+          priority: "ALTA",
+          status: "PENDING",
+          moodOwner: "Mood · SEO y Contenidos",
+          moodAction: "Ajustar el contenido priorizado.",
+          clientOwner: "Marketing/Contenido del cliente",
+          clientAction: "Revisar y aprobar el ajuste.",
+          dependency: "Aprobación del contenido.",
+          dueDate: "2026-09-14",
+          evidence: "1 señal sustentada en GA4 y GSC.",
+          validation: "Comparar el siguiente periodo.",
+          recommendationCount: 1,
+          repeatedCount: 1,
         },
       ],
       methodology: {

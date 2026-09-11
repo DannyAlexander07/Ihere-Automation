@@ -60,6 +60,7 @@ import type {
 } from "./types";
 import { buildArticleInsight, publicationMonthKey } from "./article-insights";
 import { ArticlePerformanceReport } from "./article-performance-report";
+import { ActionPlan } from "./action-plan";
 import {
   publicationCandidateGroups,
   recommendedPublicationUrl,
@@ -604,6 +605,10 @@ export function ResultsDashboard() {
     }
   };
 
+  const selectedClientName =
+    clients.find((client) => client.id === selectedClientId)?.name ??
+    "el cliente";
+
   return (
     <div className="space-y-4 min-[1920px]:space-y-5">
       <section className="overflow-hidden rounded-2xl border bg-[radial-gradient(circle_at_92%_15%,rgba(93,216,193,.19),transparent_24%),radial-gradient(circle_at_76%_0%,rgba(22,142,234,.13),transparent_25%),#fff] p-4 shadow-card sm:p-5 xl:p-6">
@@ -840,6 +845,11 @@ export function ResultsDashboard() {
               ) : null}
             </div>
           </section>
+
+          <ActionPlan
+            items={summary.actionPlan ?? []}
+            clientName={selectedClientName}
+          />
 
           <section className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-5 2xl:grid-cols-9">
             <MetricTile

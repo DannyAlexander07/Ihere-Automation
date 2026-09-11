@@ -12,6 +12,7 @@ import {
   TextRun,
 } from 'docx';
 import PDFDocument from 'pdfkit';
+import type { AnalyticsActionPlanItem } from './analytics-action-plan';
 
 type Metric = {
   current: number;
@@ -61,6 +62,7 @@ export type AnalyticsReportInput = {
     keyEvents: number;
   }>;
   recommendations: Recommendation[];
+  actionPlan: AnalyticsActionPlanItem[];
   methodology: { note: string; ga4: string; gsc: string };
 };
 
@@ -95,6 +97,26 @@ export class AnalyticsReportRendererService {
       callout(
         `Comparación: ${date(input.period.comparisonStartDate)} al ${date(input.period.comparisonEndDate)}. Última sincronización: ${dateTime(input.lastSyncCompletedAt)}.`,
       ),
+      heading('Plan de acción'),
+      ...(input.actionPlan.length
+        ? input.actionPlan.flatMap((item, index) => [
+            subheading(`${index + 1}. ${item.front}`),
+            p(
+              `${item.priority} · ${actionStatus(item.status)} · Fecha objetivo: ${date(item.dueDate)}`,
+              { blue: true, bold: true },
+            ),
+            p(`${item.moodOwner}: ${item.moodAction}`),
+            p(`${clientOwner(item, input.clientName)}: ${item.clientAction}`),
+            p(`Dependencia: ${item.dependency}`, { muted: true }),
+            p(`Evidencia: ${item.evidence}`, { muted: true }),
+            p(`Validación: ${item.validation}`, { muted: true }),
+          ])
+        : [
+            p(
+              'No hay acciones pendientes sustentadas por los datos del periodo seleccionado.',
+              { muted: true },
+            ),
+          ]),
       heading('Resumen ejecutivo'),
       ...metricParagraphs(input.metrics),
       heading('Desempeño mensual'),
@@ -216,6 +238,27 @@ export class AnalyticsReportRendererService {
       `Comparación: ${date(input.period.comparisonStartDate)} al ${date(input.period.comparisonEndDate)} · Última sincronización: ${dateTime(input.lastSyncCompletedAt)}.`,
       '#1F4D78',
     );
+    section(doc, 'Plan de acción');
+    if (!input.actionPlan.length) {
+      pt(
+        doc,
+        'No hay acciones pendientes sustentadas por los datos del periodo seleccionado.',
+        '#64748B',
+      );
+    }
+    input.actionPlan.forEach((item, index) => {
+      ph(doc, `${index + 1}. ${item.front}`, 12, '#1F4D78');
+      pt(
+        doc,
+        `${item.priority} · ${actionStatus(item.status)} · Fecha objetivo: ${date(item.dueDate)}`,
+        '#1687E8',
+      );
+      pt(doc, `${item.moodOwner}: ${item.moodAction}`);
+      pt(doc, `${clientOwner(item, input.clientName)}: ${item.clientAction}`);
+      pt(doc, `Dependencia: ${item.dependency}`, '#64748B');
+      pt(doc, `Evidencia: ${item.evidence}`, '#64748B');
+      pt(doc, `Validación: ${item.validation}`, '#64748B');
+    });
     section(doc, 'Resumen ejecutivo');
     metricLines(input.metrics).forEach((item) => pt(doc, item));
     section(doc, 'Desempeño mensual');
@@ -424,6 +467,17 @@ function status(value: string) {
       } as Record<string, string>
     )[value] ?? value
   );
+}
+function actionStatus(value: AnalyticsActionPlanItem['status']) {
+  return {
+    PENDING: 'Pendiente',
+    IN_PROGRESS: 'En progreso',
+    VALIDATED: 'Validada',
+    DISMISSED: 'Descartada',
+  }[value];
+}
+function clientOwner(item: AnalyticsActionPlanItem, clientName: string) {
+  return item.clientOwner.replace('del cliente', `de ${clientName}`);
 }
 function ph(
   doc: PDFKit.PDFDocument,

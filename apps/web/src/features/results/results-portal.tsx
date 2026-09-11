@@ -23,6 +23,7 @@ import type {
   PublicResults,
 } from "./types";
 import { ArticlePerformanceReport } from "./article-performance-report";
+import { ActionPlan } from "./action-plan";
 
 export function ResultsPortal({ data }: { data: PublicResults | null }) {
   if (!data) return <Unavailable />;
@@ -85,6 +86,11 @@ export function ResultsPortal({ data }: { data: PublicResults | null }) {
             disponible.
           </section>
         ) : null}
+
+        <ActionPlan
+          items={summary.actionPlan ?? []}
+          clientName={data.client.name}
+        />
 
         <section className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-5 2xl:grid-cols-9">
           <PublicMetric

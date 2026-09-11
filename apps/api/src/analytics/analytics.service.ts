@@ -25,6 +25,7 @@ import {
   ResultsPortalLinkStatus,
 } from '../generated/prisma/client';
 import { AnalyticsTokenVaultService } from './analytics-token-vault.service';
+import { buildAnalyticsActionPlan } from './analytics-action-plan';
 import { AnalyticsRecommendationsService } from './analytics-recommendations.service';
 import { AnalyticsReportRendererService } from './analytics-report-renderer.service';
 import type { ConfigureAnalyticsDto } from './dto/configure-analytics.dto';
@@ -427,6 +428,7 @@ export class AnalyticsService {
         monthly: summary.monthly,
         pagePerformance: summary.pagePerformance,
         recommendations: summary.recommendations,
+        actionPlan: summary.actionPlan,
         methodology: summary.methodology,
       },
       input.format,
@@ -1040,7 +1042,14 @@ export class AnalyticsService {
       pages: completeSummary.pagePerformance,
       publications: publicationPerformance,
     });
-    return { ...completeSummary, recommendations };
+    return {
+      ...completeSummary,
+      recommendations,
+      actionPlan: buildAnalyticsActionPlan(
+        recommendations,
+        completeSummary.period.endDate,
+      ),
+    };
   }
 
   private async discoverPublications(
