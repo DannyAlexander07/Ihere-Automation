@@ -177,10 +177,6 @@ export class AnalyticsReportRendererService {
       bullet(
         'Las variaciones comparan periodos equivalentes. Un cambio de rendimiento orienta la investigación, pero no demuestra por sí solo la causa del resultado.',
       ),
-      paragraph(
-        `Cierre del informe | ${input.clientName} | ${date(input.period.endDate)}`,
-        { color: colors.muted, size: 17, before: 260 },
-      ),
     ];
 
     const document = new Document({
@@ -355,33 +351,24 @@ export class AnalyticsReportRendererService {
     const range = document.bufferedPageRange();
     for (let page = range.start; page < range.start + range.count; page += 1) {
       document.switchToPage(page);
-      const originalBottomMargin = document.page.margins.bottom;
-      document.page.margins.bottom = 0;
       if (page > range.start) {
         document
-          .font('Helvetica-Bold')
-          .fontSize(7.5)
-          .fillColor(`#${colors.muted}`)
-          .text('MOOD | INFORME MENSUAL', 48, 25, {
-            width: 250,
-            lineBreak: false,
-          });
+          .save()
+          .strokeColor(`#${colors.line}`)
+          .lineWidth(0.5)
+          .moveTo(48, 34)
+          .lineTo(document.page.width - 48, 34)
+          .stroke()
+          .restore();
       }
       document
-        .font('Helvetica')
-        .fontSize(7.5)
-        .fillColor(`#${colors.muted}`)
-        .text(
-          `${input.clientName} | ${page + 1} / ${range.count}`,
-          48,
-          document.page.height - 34,
-          {
-            width: document.page.width - 96,
-            align: 'center',
-            lineBreak: false,
-          },
-        );
-      document.page.margins.bottom = originalBottomMargin;
+        .save()
+        .strokeColor(`#${colors.line}`)
+        .lineWidth(0.5)
+        .moveTo(48, document.page.height - 34)
+        .lineTo(document.page.width - 48, document.page.height - 34)
+        .stroke()
+        .restore();
     }
     document.end();
     return completed;
@@ -759,7 +746,7 @@ function title(text: string) {
         text,
         bold: true,
         color: '000000',
-        size: 53,
+        size: 48,
         font: 'Arial',
       }),
     ],

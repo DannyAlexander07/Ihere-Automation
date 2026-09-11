@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import {
   AlignmentType,
-  BorderStyle,
   Document,
   ExternalHyperlink,
   Footer,
@@ -10,7 +9,6 @@ import {
   Packer,
   PageNumber,
   Paragraph,
-  ShadingType,
   TextRun,
 } from 'docx';
 import PDFDocument from 'pdfkit';
@@ -19,12 +17,11 @@ import type { ExportBlock, ExportInput, RenderedExport } from './export-types';
 import { editorialCtaActionLabel } from './editorial-cta';
 
 const colors = {
-  blue: '1687E8',
-  darkBlue: '1F4D78',
+  blue: '168EEA',
+  darkBlue: '10243E',
+  teal: '179C8C',
   ink: '172033',
   muted: '64748B',
-  border: 'D9E2EC',
-  callout: 'EFF7FF',
 };
 
 @Injectable()
@@ -128,10 +125,10 @@ export class ExportRendererService {
         spacing: { after: 80 },
         children: [
           new TextRun({
-            text: `${input.clientName.toUpperCase()} · ${input.preApproval ? 'BORRADOR PARA REVISIÓN · NO APROBADO' : 'CONTENIDO APROBADO'}`,
+            text: `MOOD | NOTA EDITORIAL | ${input.preApproval ? 'BORRADOR PARA REVISIÓN' : 'CONTENIDO APROBADO'}`,
             bold: true,
-            color: colors.blue,
-            size: 20,
+            color: colors.teal,
+            size: 18,
             characterSpacing: 20,
           }),
         ],
@@ -143,7 +140,23 @@ export class ExportRendererService {
             text: input.title,
             bold: true,
             color: colors.ink,
-            size: 48,
+            size: 46,
+          }),
+        ],
+      }),
+      new Paragraph({
+        spacing: { after: 130 },
+        children: [
+          new TextRun({
+            text: input.clientName,
+            bold: true,
+            color: colors.darkBlue,
+            size: 23,
+          }),
+          new TextRun({
+            text: ` | Versión ${input.version}`,
+            color: colors.muted,
+            size: 20,
           }),
         ],
       }),
@@ -162,19 +175,12 @@ export class ExportRendererService {
       children.push(
         new Paragraph({
           spacing: { after: 240 },
-          border: {
-            bottom: {
-              style: BorderStyle.SINGLE,
-              size: 6,
-              color: colors.border,
-            },
-          },
           children: [
             new TextRun({ text: input.authorName, bold: true, size: 21 }),
             ...(input.authorRole
               ? [
                   new TextRun({
-                    text: ` · ${input.authorRole}`,
+                    text: ` | ${input.authorRole}`,
                     color: colors.muted,
                     size: 21,
                   }),
@@ -209,12 +215,12 @@ export class ExportRendererService {
       }
       children.push(
         new Paragraph({
-          spacing: { before: 220, after: 220, line: 264 },
-          shading: { type: ShadingType.CLEAR, fill: colors.callout },
-          border: {
-            left: { style: BorderStyle.SINGLE, size: 22, color: colors.blue },
-          },
-          indent: { left: 240, right: 180 },
+          heading: HeadingLevel.HEADING_2,
+          spacing: { before: 260, after: 90 },
+          children: [new TextRun({ text: 'Siguiente paso', bold: true })],
+        }),
+        new Paragraph({
+          spacing: { after: 220, line: 280 },
           children: ctaChildren,
         }),
       );
@@ -249,7 +255,7 @@ export class ExportRendererService {
               ],
             }),
             new TextRun({
-              text: ` Consulta: ${formatDate(source.accessedAt)}${source.publishedAt ? ` · Publicación: ${formatDate(source.publishedAt)}` : ''}.`,
+              text: ` Consulta: ${formatDate(source.accessedAt)}${source.publishedAt ? ` | Publicación: ${formatDate(source.publishedAt)}` : ''}.`,
               color: colors.muted,
             }),
           ],
@@ -288,7 +294,7 @@ export class ExportRendererService {
         spacing: { before: 220 },
         children: [
           new TextRun({
-            text: `Versión ${input.version} · Exportada desde I HERE`,
+            text: `Versión ${input.version} | Documento generado por Mood`,
             color: colors.muted,
             size: 18,
           }),
@@ -303,7 +309,7 @@ export class ExportRendererService {
             alignment: AlignmentType.RIGHT,
             children: [
               new TextRun({
-                text: 'Página ',
+                text: `Mood | ${input.clientName} | Página `,
                 color: colors.muted,
                 size: 18,
               }),
@@ -318,30 +324,30 @@ export class ExportRendererService {
       });
 
     const document = new Document({
-      creator: 'I HERE',
+      creator: 'Mood',
       title: input.title,
       description: input.metaDescription ?? undefined,
       evenAndOddHeaderAndFooters: false,
       styles: {
         default: {
           document: {
-            run: { font: 'Calibri', size: 22, color: colors.ink },
+            run: { font: 'Arial', size: 22, color: colors.ink },
             paragraph: { spacing: { after: 120, line: 264 } },
           },
           heading1: {
-            run: { font: 'Calibri', size: 32, bold: true, color: colors.blue },
+            run: { font: 'Arial', size: 32, bold: true, color: '000000' },
             paragraph: { spacing: { before: 320, after: 160 }, keepNext: true },
           },
           heading2: {
-            run: { font: 'Calibri', size: 26, bold: true, color: colors.blue },
+            run: { font: 'Arial', size: 26, bold: true, color: '000000' },
             paragraph: { spacing: { before: 240, after: 120 }, keepNext: true },
           },
           heading3: {
             run: {
-              font: 'Calibri',
+              font: 'Arial',
               size: 24,
               bold: true,
-              color: colors.darkBlue,
+              color: '000000',
             },
             paragraph: { spacing: { before: 160, after: 80 }, keepNext: true },
           },
@@ -449,10 +455,6 @@ export class ExportRendererService {
         new Paragraph({
           spacing: { before: 120, after: 160, line: 264 },
           indent: { left: 240, right: 180 },
-          shading: { type: ShadingType.CLEAR, fill: colors.callout },
-          border: {
-            left: { style: BorderStyle.SINGLE, size: 18, color: colors.blue },
-          },
           children: docxInlineRuns(block.text ?? '', {
             italics: block.type === 'quote',
           }),
@@ -469,8 +471,8 @@ export class ExportRendererService {
       bufferPages: true,
       info: {
         Title: input.title,
-        Author: input.authorName ?? 'I HERE',
-        Creator: 'I HERE',
+        Author: input.authorName ?? 'Mood',
+        Creator: 'Mood',
       },
     });
     const chunks: Buffer[] = [];
@@ -484,11 +486,11 @@ export class ExportRendererService {
     document
       .font('Helvetica-Bold')
       .fontSize(10)
-      .fillColor('#1687E8')
+      .fillColor('#179C8C')
       .text(
-        `${input.clientName.toUpperCase()} · ${input.preApproval ? 'BORRADOR PARA REVISIÓN · NO APROBADO' : 'CONTENIDO APROBADO'}`,
+        `MOOD | NOTA EDITORIAL | ${input.preApproval ? 'BORRADOR PARA REVISIÓN' : 'CONTENIDO APROBADO'}`,
         {
-          characterSpacing: 1.1,
+          characterSpacing: 1.05,
         },
       );
     document
@@ -497,6 +499,12 @@ export class ExportRendererService {
       .fontSize(25)
       .fillColor('#172033')
       .text(input.title, { lineGap: 2 });
+    document
+      .moveDown(0.45)
+      .font('Helvetica-Bold')
+      .fontSize(10.5)
+      .fillColor('#10243E')
+      .text(`${input.clientName} | Versión ${input.version}`);
     if (input.excerpt)
       document
         .moveDown(0.6)
@@ -511,31 +519,32 @@ export class ExportRendererService {
         .fontSize(9.5)
         .fillColor('#172033')
         .text(
-          `${input.authorName}${input.authorRole ? ` · ${input.authorRole}` : ''}`,
+          `${input.authorName}${input.authorRole ? ` | ${input.authorRole}` : ''}`,
         );
     document.moveDown(1.2);
     for (const block of input.blocks) this.pdfBlock(document, block, bodyWidth);
     if (input.ctaText) {
       const height =
         document.heightOfString(input.ctaText, {
-          width: bodyWidth - 32,
+          width: bodyWidth,
           lineGap: 3,
-        }) + (input.ctaUrl ? 46 : 32);
-      ensurePdfSpace(document, height + 20);
-      const top = document.y + 8;
-      document.roundedRect(72, top, bodyWidth, height, 8).fill('#EFF7FF');
-      document.rect(72, top, 4, height).fill('#1687E8');
+        }) + (input.ctaUrl ? 52 : 35);
+      ensurePdfSpace(document, height + 30);
       document
+        .moveDown(0.9)
         .font('Helvetica-Bold')
-        .fontSize(11)
+        .fontSize(13)
+        .fillColor('#000000')
+        .text('Siguiente paso');
+      document
+        .moveDown(0.35)
+        .font('Helvetica')
+        .fontSize(10.5)
         .fillColor('#172033')
-        .text(input.ctaText, 88, top + 14, {
-          width: bodyWidth - 32,
-          lineGap: 3,
-        });
+        .text(input.ctaText, { width: bodyWidth, lineGap: 3 });
       if (input.ctaUrl)
         document
-          .moveDown(0.5)
+          .moveDown(0.4)
           .font('Helvetica-Bold')
           .fontSize(10)
           .fillColor('#0B67B2')
@@ -543,14 +552,13 @@ export class ExportRendererService {
             link: input.ctaUrl,
             underline: true,
           });
-      document.y = top + height + 14;
     }
     ensurePdfSpace(document, 110);
     document
       .moveDown(0.6)
       .font('Helvetica-Bold')
       .fontSize(16)
-      .fillColor('#1687E8')
+      .fillColor('#000000')
       .text('Fuentes');
     input.sources.forEach((source, index) => {
       document
@@ -569,7 +577,7 @@ export class ExportRendererService {
         .fillColor('#64748B')
         .fontSize(8.5)
         .text(
-          `Consulta: ${formatDate(source.accessedAt)}${source.publishedAt ? ` · Publicación: ${formatDate(source.publishedAt)}` : ''}`,
+          `Consulta: ${formatDate(source.accessedAt)}${source.publishedAt ? ` | Publicación: ${formatDate(source.publishedAt)}` : ''}`,
         );
     });
     if (input.internalLinks.length) {
@@ -577,7 +585,7 @@ export class ExportRendererService {
         .moveDown(0.9)
         .font('Helvetica-Bold')
         .fontSize(13)
-        .fillColor('#1687E8')
+        .fillColor('#000000')
         .text('Enlaces internos');
       input.internalLinks.forEach((url, index) =>
         document
@@ -596,7 +604,7 @@ export class ExportRendererService {
       .font('Helvetica')
       .fontSize(8.5)
       .fillColor('#64748B')
-      .text(`Versión ${input.version} · Exportada desde I HERE`);
+      .text(`Versión ${input.version} | Documento generado por Mood`);
     const range = document.bufferedPageRange();
     for (
       let index = range.start;
@@ -604,19 +612,14 @@ export class ExportRendererService {
       index += 1
     ) {
       document.switchToPage(index);
-      const originalBottomMargin = document.page.margins.bottom;
-      document.page.margins.bottom = 0;
       document
-        .font('Helvetica')
-        .fontSize(8)
-        .fillColor('#64748B')
-        .text(
-          `${index + 1} / ${range.count}`,
-          document.page.width / 2 - 24,
-          document.page.height - 50,
-          { width: 48, align: 'center', lineBreak: false },
-        );
-      document.page.margins.bottom = originalBottomMargin;
+        .save()
+        .strokeColor('#D9E2EC')
+        .lineWidth(0.5)
+        .moveTo(72, document.page.height - 50)
+        .lineTo(document.page.width - 72, document.page.height - 50)
+        .stroke()
+        .restore();
     }
     document.end();
     return completed;
@@ -635,7 +638,7 @@ export class ExportRendererService {
         .moveDown(level === 2 ? 1.1 : 0.8)
         .font('Helvetica-Bold')
         .fontSize(size)
-        .fillColor(level === 4 ? '#1F4D78' : '#1687E8')
+        .fillColor('#000000')
         .text(plainInlineText(block.text ?? ''), { lineGap: 2 });
       return;
     }
@@ -682,14 +685,12 @@ export class ExportRendererService {
         document.heightOfString(text, { width: width - 32, lineGap: 3 }) + 28;
       ensurePdfSpace(document, height + 12);
       const top = document.y + 4;
-      document.roundedRect(72, top, width, height, 8).fill('#EFF7FF');
-      document.rect(72, top, 4, height).fill('#1687E8');
       document
         .font(block.type === 'quote' ? 'Helvetica-Oblique' : 'Helvetica')
         .fontSize(10.5)
         .fillColor('#172033')
-        .text(text, 88, top + 13, { width: width - 32, lineGap: 3 });
-      document.y = top + height + 8;
+        .text(text, 88, top + 4, { width: width - 32, lineGap: 3 });
+      document.y = top + height;
       return;
     }
     document.font('Helvetica').fontSize(10.5).fillColor('#172033');
