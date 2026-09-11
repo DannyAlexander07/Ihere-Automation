@@ -1784,8 +1784,10 @@ function RecommendationPanel({
                   </Badge>
                   <span className="text-[11px] font-semibold text-muted-foreground">
                     Prioridad {item.priority.toLocaleLowerCase("es")} ·{" "}
-                    {item.observationCount} observación
-                    {item.observationCount === 1 ? "" : "es"}
+                    {item.observationCount}{" "}
+                    {item.observationCount === 1
+                      ? "observación"
+                      : "observaciones"}
                   </span>
                 </div>
                 <h3 className="mt-2 text-sm font-semibold">{item.title}</h3>

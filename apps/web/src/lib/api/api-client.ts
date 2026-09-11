@@ -37,6 +37,7 @@ export async function apiRequestRaw(
       ...init,
       headers,
       credentials: "include",
+      cache: init.cache ?? "no-store",
     });
   } catch {
     throw new ApiError("No pudimos conectar con I HERE. Verifica que la API esté encendida.", 0);
