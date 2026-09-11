@@ -1,4 +1,7 @@
-import { AnalyticsReportRendererService } from './analytics-report-renderer.service';
+import {
+  AnalyticsReportRendererService,
+  buildAnalyticsReportView,
+} from './analytics-report-renderer.service';
 
 describe('AnalyticsReportRendererService', () => {
   const renderer = new AnalyticsReportRendererService();
@@ -92,4 +95,28 @@ describe('AnalyticsReportRendererService', () => {
       ).toBe(format === 'DOCX' ? 'PK' : '%PDF-');
     },
   );
+
+  it('exporta solo las diez notas principales y excluye la portada del blog', () => {
+    const page = report.pagePerformance[0];
+    const pages = [
+      {
+        ...page,
+        title: 'Blog',
+        url: 'https://www.adecco.com/es-pe/blog',
+        views: 999,
+      },
+      ...Array.from({ length: 12 }, (_, index) => ({
+        ...page,
+        title: `Nota ${index + 1}`,
+        url: `https://www.adecco.com/es-pe/blog/nota-${index + 1}`,
+        views: index + 1,
+      })),
+    ];
+
+    const view = buildAnalyticsReportView({ pagePerformance: pages });
+
+    expect(view.topPages).toHaveLength(10);
+    expect(view.topPages[0].title).toBe('Nota 12');
+    expect(view.topPages.some((item) => item.title === 'Blog')).toBe(false);
+  });
 });

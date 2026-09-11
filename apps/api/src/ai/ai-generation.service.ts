@@ -27,6 +27,44 @@ import type { CreateTitleBriefDto } from './dto/create-title-brief.dto';
 import type { CreateNoteGenerationDto } from './dto/create-note-generation.dto';
 import { OpenAiProviderService } from './openai-provider.service';
 
+type LearnedCorrectionInput = {
+  field: string;
+  afterValue: string | null;
+  reason: string | null;
+  correctionType: string | null;
+  createdAt: Date;
+};
+
+type VersionCorrectionInput = {
+  title: string;
+  correctionType: string | null;
+  changeReason: string | null;
+  createdAt: Date;
+};
+
+export function buildNoteLearningCorrections(
+  learnedCorrections: LearnedCorrectionInput[],
+  versions: VersionCorrectionInput[],
+) {
+  return [
+    ...learnedCorrections.map((correction) => ({
+      title: `Aprendizaje editorial: ${correction.field}`,
+      correctionType: correction.correctionType,
+      changeReason:
+        correction.reason?.trim() || correction.afterValue?.trim() || null,
+      createdAt: correction.createdAt.toISOString(),
+    })),
+    ...versions
+      .filter((version) => version.changeReason || version.correctionType)
+      .map((version) => ({
+        title: version.title,
+        correctionType: version.correctionType,
+        changeReason: version.changeReason,
+        createdAt: version.createdAt.toISOString(),
+      })),
+  ].slice(0, 75);
+}
+
 @Injectable()
 export class AiGenerationService {
   constructor(
@@ -505,16 +543,33 @@ export class AiGenerationService {
         'La nota cambió. Recarga antes de iniciar la generación.',
       );
     }
-    const activeRules = await this.prisma.learningRule.findMany({
-      where: {
-        tenantId: principal.tenantId,
-        status: LearningRuleStatus.ACTIVE,
-        OR: [{ clientId: note.clientId }, { clientId: null }],
-      },
-      orderBy: { updatedAt: 'desc' },
-      take: 50,
-      select: { id: true, title: true, description: true, glossary: true },
-    });
+    const [activeRules, learnedCorrections] = await Promise.all([
+      this.prisma.learningRule.findMany({
+        where: {
+          tenantId: principal.tenantId,
+          status: LearningRuleStatus.ACTIVE,
+          OR: [{ clientId: note.clientId }, { clientId: null }],
+        },
+        orderBy: { updatedAt: 'desc' },
+        take: 50,
+        select: { id: true, title: true, description: true, glossary: true },
+      }),
+      this.prisma.correctionSignal.findMany({
+        where: {
+          tenantId: principal.tenantId,
+          clientId: note.clientId,
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 50,
+        select: {
+          field: true,
+          afterValue: true,
+          reason: true,
+          correctionType: true,
+          createdAt: true,
+        },
+      }),
+    ]);
     const currentVersion = note.versions[0];
     if (!currentVersion)
       throw new ConflictException('La nota no tiene una versión base.');
@@ -561,14 +616,10 @@ export class AiGenerationService {
       },
       clientFeedback,
       activeRules: this.presentLearningRules(activeRules),
-      corrections: note.versions
-        .filter((version) => version.changeReason || version.correctionType)
-        .map((version) => ({
-          title: version.title,
-          correctionType: version.correctionType,
-          changeReason: version.changeReason,
-          createdAt: version.createdAt.toISOString(),
-        })),
+      corrections: buildNoteLearningCorrections(
+        learnedCorrections,
+        note.versions,
+      ),
     };
     const runBudget = BigInt(
       this.config.getOrThrow<number>('AI_RUN_BUDGET_MICROS'),
