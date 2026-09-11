@@ -97,30 +97,34 @@ const planDefinitions: PlanDefinition[] = [
 export function buildAnalyticsActionPlan(
   recommendations: ActionPlanRecommendation[],
   reportEnd: string,
+  technicalFindingCount = 0,
 ): AnalyticsActionPlanItem[] {
   return planDefinitions.flatMap((definition) => {
     const related = recommendations.filter((item) =>
       definition.codes.has(item.code),
     );
-    if (!related.length) return [];
+    const externalFindingCount =
+      definition.id === 'technical' ? technicalFindingCount : 0;
+    if (!related.length && !externalFindingCount) return [];
     const repeatedCount = related.filter(
       (item) => item.status === 'OPEN' && item.observationCount >= 2,
     ).length;
+    const recommendationCount = related.length + externalFindingCount;
     return [
       {
         id: definition.id,
         front: definition.front,
-        priority: highestPriority(related),
-        status: planStatus(related),
+        priority: related.length ? highestPriority(related) : 'ALTA',
+        status: externalFindingCount ? 'PENDING' : planStatus(related),
         moodOwner: definition.moodOwner,
         moodAction: definition.moodAction,
         clientOwner: definition.clientOwner,
         clientAction: definition.clientAction,
         dependency: definition.dependency,
         dueDate: dueDate(reportEnd, definition),
-        evidence: `${related.length} señal${related.length === 1 ? '' : 'es'} sustentada${related.length === 1 ? '' : 's'} en ${definition.evidenceSource}${repeatedCount ? `; ${repeatedCount} pendiente${repeatedCount === 1 ? '' : 's'} por segundo periodo` : ''}.`,
+        evidence: `${recommendationCount} señal${recommendationCount === 1 ? '' : 'es'} sustentada${recommendationCount === 1 ? '' : 's'} en ${definition.evidenceSource}${repeatedCount ? `; ${repeatedCount} pendiente${repeatedCount === 1 ? '' : 's'} por segundo periodo` : ''}.`,
         validation: definition.validation,
-        recommendationCount: related.length,
+        recommendationCount,
         repeatedCount,
       },
     ];

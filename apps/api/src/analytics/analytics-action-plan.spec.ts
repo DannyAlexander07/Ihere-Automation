@@ -73,4 +73,18 @@ describe('buildAnalyticsActionPlan', () => {
   it('no inventa acciones cuando no existen hallazgos', () => {
     expect(buildAnalyticsActionPlan([], '2026-08-31')).toEqual([]);
   });
+
+  it('incorpora incidencias técnicas detectadas antes de confirmar una URL', () => {
+    const result = buildAnalyticsActionPlan([], '2026-08-31', 6);
+
+    expect(result).toEqual([
+      expect.objectContaining({
+        id: 'technical',
+        priority: 'ALTA',
+        status: 'PENDING',
+        recommendationCount: 6,
+        evidence: '6 señales sustentadas en validación técnica y GSC.',
+      }),
+    ]);
+  });
 });

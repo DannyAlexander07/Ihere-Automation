@@ -987,42 +987,59 @@ export class AnalyticsService {
       select: connectionSelect,
     });
     const period = reportingPeriod(days, startDate, endDate);
-    const [ga4, gsc, publicationPerformance] = await Promise.all([
-      this.prisma.ga4PageMetric.findMany({
-        where: {
-          tenantId,
-          clientId,
-          date: { gte: period.previousStart, lte: period.currentEnd },
-        },
-        select: {
-          date: true,
-          pagePath: true,
-          sessions: true,
-          activeUsers: true,
-          views: true,
-          engagedSessions: true,
-          userEngagementDuration: true,
-          keyEvents: true,
-        },
-      }),
-      this.prisma.gscSearchMetric.findMany({
-        where: {
-          tenantId,
-          clientId,
-          date: { gte: period.previousStart, lte: period.currentEnd },
-        },
-        select: {
-          date: true,
-          page: true,
-          query: true,
-          clicks: true,
-          impressions: true,
-          ctr: true,
-          position: true,
-        },
-      }),
-      this.publicationPerformance(tenantId, clientId),
-    ]);
+    const [ga4, gsc, publicationPerformance, technicalPublications] =
+      await Promise.all([
+        this.prisma.ga4PageMetric.findMany({
+          where: {
+            tenantId,
+            clientId,
+            date: { gte: period.previousStart, lte: period.currentEnd },
+          },
+          select: {
+            date: true,
+            pagePath: true,
+            sessions: true,
+            activeUsers: true,
+            views: true,
+            engagedSessions: true,
+            userEngagementDuration: true,
+            keyEvents: true,
+          },
+        }),
+        this.prisma.gscSearchMetric.findMany({
+          where: {
+            tenantId,
+            clientId,
+            date: { gte: period.previousStart, lte: period.currentEnd },
+          },
+          select: {
+            date: true,
+            page: true,
+            query: true,
+            clicks: true,
+            impressions: true,
+            ctr: true,
+            position: true,
+          },
+        }),
+        this.publicationPerformance(tenantId, clientId),
+        this.prisma.contentPublication.findMany({
+          where: {
+            tenantId,
+            clientId,
+            status: ContentPublicationStatus.PENDING_CONFIRMATION,
+            validationStatus: {
+              in: [
+                PublicationUrlValidationStatus.BROKEN,
+                PublicationUrlValidationStatus.ERROR,
+                PublicationUrlValidationStatus.REVIEW,
+                PublicationUrlValidationStatus.REDIRECTED,
+              ],
+            },
+          },
+          select: { id: true, candidateGroupKey: true },
+        }),
+      ]);
     const summary = buildAnalyticsSummary(connection, period, ga4, gsc, 'BLOG');
     const completeSummary = {
       ...summary,
@@ -1048,6 +1065,11 @@ export class AnalyticsService {
       actionPlan: buildAnalyticsActionPlan(
         recommendations,
         completeSummary.period.endDate,
+        new Set(
+          technicalPublications.map(
+            (publication) => publication.candidateGroupKey ?? publication.id,
+          ),
+        ).size,
       ),
     };
   }
