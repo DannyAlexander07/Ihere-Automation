@@ -15,9 +15,11 @@ import {
   AiGenerationKind,
   AiGenerationStatus,
   AuditActorType,
+  ClientReviewDecisionType,
   LearningRuleStatus,
   NoteStatus,
   Prisma,
+  TitleDecisionType,
   TitleStatus,
 } from '../generated/prisma/client';
 import { AI_PRICING_VERSION } from './ai-pricing.service';
@@ -41,6 +43,92 @@ type VersionCorrectionInput = {
   changeReason: string | null;
   createdAt: Date;
 };
+
+export type TitleRevisionFeedbackInput = {
+  proposalId: string;
+  type: 'REQUEST_CHANGES' | 'REJECT';
+  reason: string;
+  createdAt: Date;
+};
+
+export function latestTitleRevisionFeedback(
+  feedback: TitleRevisionFeedbackInput[],
+) {
+  const latest = new Map<string, TitleRevisionFeedbackInput>();
+  [...feedback]
+    .sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime())
+    .forEach((item) => {
+      if (!latest.has(item.proposalId)) latest.set(item.proposalId, item);
+    });
+  return latest;
+}
+
+type TitleRevisionFeedbackReader = Pick<
+  PrismaService,
+  'titlePackageReviewDecision' | 'titleDecision'
+>;
+
+export async function loadLatestTitleRevisionFeedback(
+  prisma: TitleRevisionFeedbackReader,
+  proposalIds: string[],
+) {
+  const [packageDecisions, internalDecisions] = await Promise.all([
+    prisma.titlePackageReviewDecision.findMany({
+      where: {
+        item: { proposalId: { in: proposalIds } },
+        type: {
+          in: [
+            ClientReviewDecisionType.REQUEST_CHANGES,
+            ClientReviewDecisionType.REJECT,
+          ],
+        },
+      },
+      select: {
+        type: true,
+        reason: true,
+        createdAt: true,
+        item: { select: { proposalId: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    }),
+    prisma.titleDecision.findMany({
+      where: {
+        proposalId: { in: proposalIds },
+        type: {
+          in: [TitleDecisionType.REQUEST_CHANGES, TitleDecisionType.REJECT],
+        },
+      },
+      select: {
+        proposalId: true,
+        type: true,
+        reason: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    }),
+  ]);
+
+  return latestTitleRevisionFeedback([
+    ...packageDecisions.map((decision) => ({
+      proposalId: decision.item.proposalId,
+      type:
+        decision.type === ClientReviewDecisionType.REJECT
+          ? ('REJECT' as const)
+          : ('REQUEST_CHANGES' as const),
+      reason: decision.reason,
+      createdAt: decision.createdAt,
+    })),
+    ...internalDecisions.map((decision) => ({
+      proposalId: decision.proposalId,
+      type:
+        decision.type === TitleDecisionType.REJECT
+          ? ('REJECT' as const)
+          : ('REQUEST_CHANGES' as const),
+      reason: decision.reason,
+      createdAt: decision.createdAt,
+    })),
+  ]);
+}
 
 export function buildNoteLearningCorrections(
   learnedCorrections: LearnedCorrectionInput[],
@@ -354,22 +442,8 @@ export class AiGenerationService {
       );
     }
     const proposalIds = sourceRun.titleProposals.map((item) => item.id);
-    const decisions = await this.prisma.titlePackageReviewDecision.findMany({
-      where: { item: { proposalId: { in: proposalIds } } },
-      select: {
-        type: true,
-        reason: true,
-        createdAt: true,
-        item: { select: { proposalId: true, version: true } },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
-    const latestFeedback = new Map<string, (typeof decisions)[number]>();
-    decisions.forEach((decision) => {
-      if (!latestFeedback.has(decision.item.proposalId))
-        latestFeedback.set(decision.item.proposalId, decision);
-    });
-    const [activeRules, history] = await Promise.all([
+    const [latestFeedback, activeRules, history] = await Promise.all([
+      loadLatestTitleRevisionFeedback(this.prisma, proposalIds),
       this.prisma.learningRule.findMany({
         where: {
           tenantId: principal.tenantId,
@@ -388,7 +462,12 @@ export class AiGenerationService {
         },
         orderBy: { updatedAt: 'desc' },
         take: 200,
-        select: { service: true, title: true, searchIntent: true, focus: true },
+        select: {
+          service: true,
+          title: true,
+          searchIntent: true,
+          focus: true,
+        },
       }),
     ]);
     const pendingExisting = await this.prisma.aiGenerationRun.findMany({
@@ -411,7 +490,7 @@ export class AiGenerationService {
       const feedback = latestFeedback.get(proposal.id);
       if (!feedback) {
         throw new ConflictException(
-          `El título “${proposal.title}” no tiene una observación del cliente registrada.`,
+          `El título “${proposal.title}” no tiene una observación registrada.`,
         );
       }
       const snapshot: Prisma.InputJsonObject = {

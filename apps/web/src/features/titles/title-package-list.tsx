@@ -401,7 +401,8 @@ function PackageCard({
     Math.max(0, approvalTarget - approved.length),
   );
   const isCorrection = approved.length > 0 && readyToSend.length > 0;
-  const shareGroup = isCorrection
+  const hasPreviousDecisions = approved.length > 0 || observed.length > 0;
+  const reviewGroup = hasPreviousDecisions
     ? { ...group, candidates: readyToSend }
     : group;
 
@@ -447,6 +448,22 @@ function PackageCard({
             <Eye />
             Vista previa interna
           </Button>
+          {readyToSend.length && !packageComplete ? (
+            <Button
+              variant="outline"
+              onClick={() =>
+                onReviewPackage(reviewGroup, remainingApprovalTarget)
+              }
+              disabled={
+                !canApprove ||
+                !remainingApprovalTarget ||
+                readyToSend.some((item) => !canApproveTitle(item))
+              }
+            >
+              <ShieldCheck />
+              Revisar y aprobar aquí
+            </Button>
+          ) : null}
           {observed.length && !packageComplete ? (
             <Button
               variant="outline"
@@ -459,35 +476,19 @@ function PackageCard({
                 : `Corregir ${observed.length} pendiente${observed.length === 1 ? "" : "s"}`}
             </Button>
           ) : readyToSend.length && !packageComplete ? (
-            <>
-              <Button
-                variant="outline"
-                onClick={() =>
-                  onReviewPackage(shareGroup, remainingApprovalTarget)
-                }
-                disabled={
-                  !canApprove ||
-                  !remainingApprovalTarget ||
-                  readyToSend.some((item) => !canApproveTitle(item))
-                }
-              >
-                <ShieldCheck />
-                Revisar y aprobar aquí
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => onSharePackage(shareGroup)}
-                disabled={
-                  !canShare ||
-                  readyToSend.some((item) => item.status === "evaluating")
-                }
-              >
-                <Send />
-                {isCorrection
-                  ? `Enviar ${readyToSend.length} corrección${readyToSend.length === 1 ? "" : "es"}`
-                  : "Enviar paquete al cliente"}
-              </Button>
-            </>
+            <Button
+              variant="outline"
+              onClick={() => onSharePackage(reviewGroup)}
+              disabled={
+                !canShare ||
+                readyToSend.some((item) => item.status === "evaluating")
+              }
+            >
+              <Send />
+              {isCorrection
+                ? `Enviar ${readyToSend.length} corrección${readyToSend.length === 1 ? "" : "es"}`
+                : "Enviar paquete al cliente"}
+            </Button>
           ) : null}
         </div>
       </CardHeader>

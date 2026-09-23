@@ -185,4 +185,56 @@ describe("TitlePackageList", () => {
       1,
     );
   });
+
+  it("mantiene disponibles la aprobación interna y la corrección en un paquete mixto", () => {
+    const onReviewPackage = vi.fn();
+    const onRevisePackage = vi.fn();
+    const proposals = Array.from({ length: 4 }, (_, index) => {
+      const item = candidate(index + 1);
+      return {
+        ...item,
+        status: index === 3 ? ("changes_requested" as const) : item.status,
+        package: { ...item.package!, id: "package-mixed", topic: "Paquete mixto" },
+      };
+    });
+
+    render(
+      <TitlePackageList
+        candidates={proposals}
+        canShare
+        canApprove
+        canRevise
+        revisingPackageId={null}
+        onSelect={vi.fn()}
+        onSharePackage={vi.fn()}
+        onReviewPackage={onReviewPackage}
+        onRevisePackage={onRevisePackage}
+        canDelete={false}
+        onDeleteFolder={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /Paquete mixto/i }));
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Revisar y aprobar aquí" }),
+    );
+    expect(onReviewPackage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: "package-mixed",
+        candidates: expect.arrayContaining([
+          expect.objectContaining({ status: "proposed" }),
+        ]),
+      }),
+      3,
+    );
+    expect(onReviewPackage.mock.calls[0][0].candidates).toHaveLength(3);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Corregir 1 pendiente" }),
+    );
+    expect(onRevisePackage).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "package-mixed" }),
+    );
+  });
 });
