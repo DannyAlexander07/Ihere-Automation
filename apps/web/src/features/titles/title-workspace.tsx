@@ -46,6 +46,10 @@ import { getTitleBlockingReasons, titleStatusLabels } from "./rules";
 import { type ApiClientSummary, type ApiTitle, mapApiTitle } from "./title-api";
 import { TitleDetailSheet } from "./title-detail-sheet";
 import { TitlePackageList } from "./title-package-list";
+import {
+  InternalTitlePackageReviewDialog,
+  type InternalPackageDecision,
+} from "./internal-title-package-review-dialog";
 import type { EditorialFolderGroup, TitlePackageGroup } from "./title-packages";
 import { TitleRulesDialog } from "./title-rules-dialog";
 import type {
@@ -66,6 +70,10 @@ type DuplicateFilter = "all" | DuplicateLevel;
 type DeleteTarget =
   | { kind: "title"; candidate: TitleCandidate }
   | { kind: "folder"; folder: EditorialFolderGroup };
+type InternalReviewTarget = {
+  group: TitlePackageGroup;
+  approvalTarget: number;
+};
 
 const selectClass =
   "h-10 rounded-lg border border-input bg-card px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
@@ -102,6 +110,10 @@ export function TitleWorkspace() {
   const [reviewPackage, setReviewPackage] = useState<TitlePackageGroup | null>(
     null,
   );
+  const [internalReview, setInternalReview] =
+    useState<InternalReviewTarget | null>(null);
+  const [submittingInternalReview, setSubmittingInternalReview] =
+    useState(false);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [duplicateFilter, setDuplicateFilter] =
@@ -150,6 +162,9 @@ export function TitleWorkspace() {
     "review_links.manage",
     clientId,
   );
+  const canReviewPackagesInternally =
+    hasClientPermission(user, "titles.approve", clientId) &&
+    hasClientPermission(user, "titles.review", clientId);
   const canRevisePackages =
     hasClientPermission(user, "ai.generate", clientId) &&
     hasClientPermission(user, "titles.edit", clientId);
@@ -533,6 +548,34 @@ export function TitleWorkspace() {
     }
   };
 
+  const submitInternalReview = async (
+    target: InternalReviewTarget,
+    decisions: InternalPackageDecision[],
+  ) => {
+    setSubmittingInternalReview(true);
+    setNotice(null);
+    try {
+      await apiFetch(`titles/packages/${target.group.id}/internal-review`, {
+        method: "POST",
+        body: JSON.stringify({ decisions }),
+      });
+      await fetchTitles(clientId);
+      setInternalReview(null);
+      const approved = decisions.filter(
+        (decision) => decision.type === "APPROVE",
+      ).length;
+      setNotice({
+        tone: "success",
+        title: "Revisión interna registrada",
+        description: `${approved} título${approved === 1 ? "" : "s"} aprobado${approved === 1 ? "" : "s"}. Las decisiones quedaron auditadas sin enviar un enlace al cliente.`,
+      });
+    } catch (error) {
+      showError("No se pudo registrar la revisión interna", error);
+    } finally {
+      setSubmittingInternalReview(false);
+    }
+  };
+
   const changeClient = async (nextClientId: string) => {
     setClientId(nextClientId);
     setLoading(true);
@@ -839,10 +882,14 @@ export function TitleWorkspace() {
         <TitlePackageList
           candidates={filteredCandidates}
           canShare={canSharePackages}
+          canApprove={canReviewPackagesInternally}
           canRevise={canRevisePackages}
           revisingPackageId={revisingPackageId}
           onSelect={(candidate) => void selectCandidate(candidate)}
           onSharePackage={setReviewPackage}
+          onReviewPackage={(group, approvalTarget) =>
+            setInternalReview({ group, approvalTarget })
+          }
           onRevisePackage={(group) => void revisePackage(group)}
           canDelete={canDeleteTitles}
           onDeleteFolder={(folder) =>
@@ -924,6 +971,18 @@ export function TitleWorkspace() {
             (candidate) => candidate.id,
           )}
           onClose={() => setReviewPackage(null)}
+        />
+      ) : null}
+      {internalReview ? (
+        <InternalTitlePackageReviewDialog
+          key={`${internalReview.group.id}:${internalReview.group.candidates.map((candidate) => candidate.currentVersion).join("-")}`}
+          group={internalReview.group}
+          approvalTarget={internalReview.approvalTarget}
+          busy={submittingInternalReview}
+          onClose={() => setInternalReview(null)}
+          onSubmit={(decisions) =>
+            void submitInternalReview(internalReview, decisions)
+          }
         />
       ) : null}
       <GenerateTitlesDialog

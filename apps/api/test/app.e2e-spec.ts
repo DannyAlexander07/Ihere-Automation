@@ -1377,6 +1377,136 @@ describe('I HERE API (e2e)', () => {
     ).toBe(4);
   }, 25_000);
 
+  it('permite cerrar internamente un paquete sin crear un enlace para el cliente', async () => {
+    const packageRun = await prisma.aiGenerationRun.create({
+      data: {
+        tenantId: tenantIds[0],
+        clientId: clientAId,
+        kind: 'TITLE_PROPOSALS',
+        status: 'COMPLETED',
+        requestedById: userAId,
+        provider: 'e2e',
+        model: 'e2e-internal-package-selection',
+        reasoningEffort: 'low',
+        inputSnapshot: {
+          request: {
+            topic: 'Selección interna mensual',
+            objective: 'Seleccionar cuatro notas sin revisión externa',
+            audience: 'Gerencias de Recursos Humanos',
+            searchIntent: 'Resolver',
+            count: 5,
+          },
+        },
+        output: { candidates: 5 },
+        budgetLimitMicros: 1_000_000,
+        pricingVersion: 'e2e',
+        completedAt: new Date(),
+        titleProposals: {
+          create: Array.from({ length: 5 }, (_, index) => {
+            const position = index + 1;
+            const title = `Alternativa interna ${position}: gestión del talento`;
+            return {
+              tenantId: tenantIds[0],
+              clientId: clientAId,
+              title,
+              canonicalTitle: `alternativa interna ${position} gestion del talento`,
+              service: `Servicio interno ${position}`,
+              objective: `Orientar la selección interna ${position}.`,
+              audience: 'Gerencias de Recursos Humanos',
+              searchIntent: 'Resolver una necesidad empresarial',
+              focus: `Enfoque interno verificable ${position}`,
+              opportunity: 'Aportar conocimiento práctico de Adecco Perú',
+              risk: 'Evitar afirmaciones sin respaldo',
+              status: 'PROPOSED' as const,
+              duplicateResolution: 'UNIQUE' as const,
+              createdById: userAId,
+              versions: {
+                create: {
+                  version: 1,
+                  title,
+                  service: `Servicio interno ${position}`,
+                  objective: `Orientar la selección interna ${position}.`,
+                  audience: 'Gerencias de Recursos Humanos',
+                  searchIntent: 'Resolver una necesidad empresarial',
+                  focus: `Enfoque interno verificable ${position}`,
+                  opportunity: 'Aportar conocimiento práctico de Adecco Perú',
+                  risk: 'Evitar afirmaciones sin respaldo',
+                  source: 'AI_ASSISTED' as const,
+                  createdById: userAId,
+                },
+              },
+              evaluations: {
+                create: {
+                  version: 1,
+                  status: 'COMPLETED' as const,
+                  verdict: 'PASS' as const,
+                  overallScore: 91,
+                  summary: 'Propuesta apta para decisión interna.',
+                  requestedById: userAId,
+                  completedAt: new Date(),
+                },
+              },
+            };
+          }),
+        },
+      },
+      include: { titleProposals: { orderBy: { title: 'asc' } } },
+    });
+
+    const decided = await app.inject({
+      method: 'POST',
+      url: `/api/v1/titles/packages/${packageRun.id}/internal-review`,
+      headers: authHeaders(),
+      payload: {
+        decisions: packageRun.titleProposals.slice(0, 4).map((proposal) => ({
+          proposalId: proposal.id,
+          expectedVersion: 1,
+          type: 'APPROVE',
+        })),
+      },
+    });
+
+    expect(decided.statusCode).toBe(201);
+    expect(decided.json()).toMatchObject({
+      accepted: true,
+      approvalTarget: 4,
+      notSelectedCount: 1,
+    });
+    expect(
+      await prisma.titleProposal.groupBy({
+        by: ['status'],
+        where: { generationRunId: packageRun.id },
+        _count: { _all: true },
+        orderBy: { status: 'asc' },
+      }),
+    ).toEqual([
+      { _count: { _all: 4 }, status: 'APPROVED' },
+      { _count: { _all: 1 }, status: 'ARCHIVED' },
+    ]);
+    expect(
+      await prisma.titleDecision.count({
+        where: {
+          proposal: { generationRunId: packageRun.id },
+          type: 'APPROVE',
+        },
+      }),
+    ).toBe(4);
+    expect(
+      await prisma.titlePackageReviewLink.count({
+        where: { generationRunId: packageRun.id },
+      }),
+    ).toBe(0);
+    expect(
+      await prisma.auditLog.findFirstOrThrow({
+        where: {
+          entityId: packageRun.id,
+          action: 'title_package.internal_review.completed',
+        },
+        select: { userId: true },
+      }),
+    ).toEqual({ userId: userAId });
+  }, 25_000);
+
   it('comparte un paquete navegable de notas con propuesta visual y registra una decisión por nota', async () => {
     const packageRun = await prisma.aiGenerationRun.create({
       data: {
@@ -2117,6 +2247,7 @@ describe('I HERE API (e2e)', () => {
     ).toEqual(['DOCX', 'HTML', 'PDF']);
 
     const publicationUrl = `https://www.adecco.com/es-pe/blog/mapeo-puestos-criticos-${suffix}`;
+    const publicationDate = new Date().toISOString().slice(0, 10);
     const publicationCreated = await app.inject({
       method: 'POST',
       url: '/api/v1/analytics/publications',
@@ -2125,7 +2256,7 @@ describe('I HERE API (e2e)', () => {
         clientId: clientAId,
         noteId: note.id,
         url: publicationUrl,
-        publishedAt: '2026-08-18',
+        publishedAt: publicationDate,
       },
     });
     expect(publicationCreated.statusCode).toBe(201);

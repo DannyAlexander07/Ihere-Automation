@@ -15,6 +15,7 @@ import {
   AuditActorType,
   AiGenerationKind,
   ClientReviewLinkStatus,
+  CorrectionType,
   DuplicateResolution,
   Prisma,
   TitleDecisionType,
@@ -24,6 +25,7 @@ import {
 import { CreateTitleDto } from './dto/create-title.dto';
 import { DeleteTitleFolderDto } from './dto/delete-title-folder.dto';
 import { ListTitlesDto } from './dto/list-titles.dto';
+import type { InternalTitlePackageDecisionDto } from './dto/internal-title-package-decision.dto';
 import { TitleDecisionDto } from './dto/title-decision.dto';
 import { UpdateTitleDto } from './dto/update-title.dto';
 import { TitleWorkflowService } from './title-workflow.service';
@@ -39,6 +41,12 @@ const editableFields = [
   'opportunity',
   'risk',
 ] as const;
+
+const internallyReviewableStatuses: TitleStatus[] = [
+  TitleStatus.PROPOSED,
+  TitleStatus.EVALUATING,
+];
+const monthlyApprovalTarget = 4;
 
 @Injectable()
 export class TitlesService {
@@ -855,6 +863,234 @@ export class TitlesService {
       });
       return { proposal: updated, decision };
     });
+  }
+
+  async decidePackage(
+    generationRunId: string,
+    input: InternalTitlePackageDecisionDto,
+    principal: AuthPrincipal,
+  ) {
+    const run = await this.prisma.aiGenerationRun.findFirst({
+      where: {
+        id: generationRunId,
+        tenantId: principal.tenantId,
+        kind: AiGenerationKind.TITLE_PROPOSALS,
+      },
+      include: {
+        titleProposals: {
+          orderBy: { createdAt: 'asc' },
+          include: {
+            evaluations: { orderBy: { createdAt: 'desc' }, take: 1 },
+          },
+        },
+      },
+    });
+    if (!run) throw new NotFoundException('Paquete de títulos no encontrado.');
+
+    const decisionsByProposal = new Map(
+      input.decisions.map((decision) => [decision.proposalId, decision]),
+    );
+    if (decisionsByProposal.size !== input.decisions.length) {
+      throw new ConflictException('La revisión contiene títulos repetidos.');
+    }
+
+    const reviewable = run.titleProposals.filter((proposal) =>
+      internallyReviewableStatuses.includes(proposal.status),
+    );
+    const reviewableIds = new Set(reviewable.map((proposal) => proposal.id));
+    if (
+      !reviewable.length ||
+      input.decisions.some(
+        (decision) => !reviewableIds.has(decision.proposalId),
+      )
+    ) {
+      throw new ConflictException(
+        'La revisión contiene títulos ajenos al paquete o que ya no están pendientes.',
+      );
+    }
+
+    const approvedCount = run.titleProposals.filter(
+      (proposal) => proposal.status === TitleStatus.APPROVED,
+    ).length;
+    const remainingApprovals = monthlyApprovalTarget - approvedCount;
+    if (remainingApprovals <= 0) {
+      throw new ConflictException(
+        'El expediente ya cuenta con cuatro títulos aprobados para el mes.',
+      );
+    }
+    const approvalTarget = Math.min(reviewable.length, remainingApprovals);
+    const selectedApprovals = input.decisions.filter(
+      (decision) => decision.type === TitleDecisionType.APPROVE,
+    ).length;
+    const allReviewed = input.decisions.length === reviewable.length;
+    if (selectedApprovals > approvalTarget) {
+      throw new ConflictException(
+        `Solo puedes aprobar ${approvalTarget} títulos en este paquete.`,
+      );
+    }
+    if (selectedApprovals < approvalTarget && !allReviewed) {
+      throw new ConflictException(
+        `Aprueba ${approvalTarget} títulos o registra una decisión para cada alternativa.`,
+      );
+    }
+    const targetReached = selectedApprovals === approvalTarget;
+
+    for (const proposal of reviewable) {
+      const decision = decisionsByProposal.get(proposal.id);
+      if (!decision) continue;
+      if (decision.expectedVersion !== proposal.currentVersion) {
+        throw this.versionConflict();
+      }
+      const permission =
+        decision.type === TitleDecisionType.APPROVE
+          ? 'titles.approve'
+          : 'titles.review';
+      this.assertClientPermission(principal, permission, run.clientId);
+      this.workflow.assertCanDecide(
+        proposal.status,
+        decision.type,
+        proposal.duplicateScore,
+        proposal.duplicateResolution,
+        proposal.evaluations[0],
+      );
+    }
+
+    return this.prisma.$transaction(
+      async (tx) => {
+        const results: Array<{
+          proposalId: string;
+          type: TitleDecisionType | 'NOT_SELECTED';
+          status: TitleStatus;
+        }> = [];
+        for (const proposal of reviewable) {
+          const decision = decisionsByProposal.get(proposal.id);
+          const selected = decision?.type === TitleDecisionType.APPROVE;
+          const nextStatus = selected
+            ? TitleStatus.APPROVED
+            : targetReached
+              ? TitleStatus.ARCHIVED
+              : this.workflow.statusForDecision(decision!.type);
+          const claimed = await tx.titleProposal.updateMany({
+            where: {
+              id: proposal.id,
+              tenantId: principal.tenantId,
+              generationRunId,
+              currentVersion: proposal.currentVersion,
+              status: proposal.status,
+            },
+            data: {
+              status: nextStatus,
+              approvedById: selected ? principal.userId : null,
+              approvedAt: selected ? new Date() : null,
+            },
+          });
+          if (claimed.count !== 1) {
+            throw new ConflictException(
+              'Uno de los títulos cambió antes de registrar la revisión.',
+            );
+          }
+          if (decision) {
+            const reason =
+              decision.type === TitleDecisionType.APPROVE
+                ? 'Aprobado durante la revisión interna del paquete.'
+                : decision.reason!.trim();
+            await tx.titleDecision.create({
+              data: {
+                proposalId: proposal.id,
+                version: proposal.currentVersion,
+                type: decision.type,
+                reason,
+                actorId: principal.userId,
+                metadata: { source: 'internal_package_review' },
+              },
+            });
+            if (decision.type !== TitleDecisionType.APPROVE) {
+              const version = await tx.titleVersion.findUniqueOrThrow({
+                where: {
+                  proposalId_version: {
+                    proposalId: proposal.id,
+                    version: proposal.currentVersion,
+                  },
+                },
+                select: { id: true, title: true },
+              });
+              await tx.correctionSignal.create({
+                data: {
+                  tenantId: principal.tenantId,
+                  clientId: run.clientId,
+                  proposalId: proposal.id,
+                  versionId: version.id,
+                  field: 'internal.title_feedback',
+                  beforeValue: version.title,
+                  afterValue: reason,
+                  reason,
+                  correctionType: CorrectionType.OTHER,
+                  actorId: principal.userId,
+                },
+              });
+            }
+          }
+          results.push({
+            proposalId: proposal.id,
+            type: decision?.type ?? 'NOT_SELECTED',
+            status: nextStatus,
+          });
+        }
+
+        const proposalIds = reviewable.map((proposal) => proposal.id);
+        await tx.titleReviewLink.updateMany({
+          where: {
+            proposalId: { in: proposalIds },
+            status: ClientReviewLinkStatus.ACTIVE,
+          },
+          data: {
+            status: ClientReviewLinkStatus.REVOKED,
+            revokedById: principal.userId,
+            revokedAt: new Date(),
+          },
+        });
+        await tx.titlePackageReviewLink.updateMany({
+          where: {
+            generationRunId,
+            status: ClientReviewLinkStatus.ACTIVE,
+          },
+          data: {
+            status: ClientReviewLinkStatus.REVOKED,
+            revokedById: principal.userId,
+            revokedAt: new Date(),
+          },
+        });
+        await tx.auditLog.create({
+          data: {
+            tenantId: principal.tenantId,
+            clientId: run.clientId,
+            userId: principal.userId,
+            ...this.auditContext(principal),
+            actorType: AuditActorType.USER,
+            action: 'title_package.internal_review.completed',
+            entityType: 'ai_generation_run',
+            entityId: generationRunId,
+            after: { decisions: results },
+            metadata: {
+              approvalTarget,
+              approvedCount: selectedApprovals,
+              notSelectedCount: results.filter(
+                (result) => result.status === TitleStatus.ARCHIVED,
+              ).length,
+            },
+          },
+        });
+        return {
+          accepted: true,
+          decisions: results,
+          approvalTarget,
+          notSelectedCount: results.filter(
+            (result) => result.status === TitleStatus.ARCHIVED,
+          ).length,
+        };
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    );
   }
 
   private async changeStatus(

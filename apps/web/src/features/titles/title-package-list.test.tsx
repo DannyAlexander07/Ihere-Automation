@@ -52,10 +52,12 @@ describe("TitlePackageList", () => {
           candidate(index + 1),
         )}
         canShare
+        canApprove
         canRevise
         revisingPackageId={null}
         onSelect={vi.fn()}
         onSharePackage={vi.fn()}
+        onReviewPackage={vi.fn()}
         onRevisePackage={vi.fn()}
         canDelete={false}
         onDeleteFolder={vi.fn()}
@@ -83,10 +85,12 @@ describe("TitlePackageList", () => {
       <TitlePackageList
         candidates={[candidate(1)]}
         canShare
+        canApprove
         canRevise
         revisingPackageId={null}
         onSelect={onSelect}
         onSharePackage={vi.fn()}
+        onReviewPackage={vi.fn()}
         onRevisePackage={vi.fn()}
         canDelete={false}
         onDeleteFolder={vi.fn()}
@@ -126,10 +130,12 @@ describe("TitlePackageList", () => {
       <TitlePackageList
         candidates={[candidate(1)]}
         canShare
+        canApprove
         canRevise
         revisingPackageId={null}
         onSelect={vi.fn()}
         onSharePackage={vi.fn()}
+        onReviewPackage={vi.fn()}
         onRevisePackage={vi.fn()}
         canDelete
         onDeleteFolder={onDeleteFolder}
@@ -146,6 +152,37 @@ describe("TitlePackageList", () => {
         key: "adecco:2026:1",
         clientId: "client-a",
       }),
+    );
+  });
+
+  it("permite iniciar la aprobación interna sin compartir con el cliente", () => {
+    const onReviewPackage = vi.fn();
+    render(
+      <TitlePackageList
+        candidates={[candidate(1)]}
+        canShare
+        canApprove
+        canRevise
+        revisingPackageId={null}
+        onSelect={vi.fn()}
+        onSharePackage={vi.fn()}
+        onReviewPackage={onReviewPackage}
+        onRevisePackage={vi.fn()}
+        canDelete={false}
+        onDeleteFolder={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /Expediente editorial 1/i }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Revisar y aprobar aquí" }),
+    );
+
+    expect(onReviewPackage).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "package-1" }),
+      1,
     );
   });
 });

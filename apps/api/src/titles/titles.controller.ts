@@ -19,6 +19,7 @@ import { RequireTenantPermissions } from '../common/decorators/tenant-permission
 import { CreateTitleDto } from './dto/create-title.dto';
 import { DeleteTitleFolderDto } from './dto/delete-title-folder.dto';
 import { ExportTitleFolderDto } from './dto/export-title-folder.dto';
+import { InternalTitlePackageDecisionDto } from './dto/internal-title-package-decision.dto';
 import { ListTitlesDto } from './dto/list-titles.dto';
 import { TitleDecisionDto } from './dto/title-decision.dto';
 import { UpdateTitleDto } from './dto/update-title.dto';
@@ -78,6 +79,15 @@ export class TitlesController {
     @CurrentUser() principal: AuthPrincipal,
   ) {
     return this.titles.remove(id, principal);
+  }
+
+  @Post('packages/:generationRunId/internal-review')
+  internalPackageReview(
+    @Param('generationRunId', ParseUUIDPipe) generationRunId: string,
+    @Body() input: InternalTitlePackageDecisionDto,
+    @CurrentUser() principal: AuthPrincipal,
+  ) {
+    return this.titles.decidePackage(generationRunId, input, principal);
   }
 
   @Get(':id')

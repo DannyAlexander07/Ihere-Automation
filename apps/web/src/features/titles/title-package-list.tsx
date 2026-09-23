@@ -18,6 +18,7 @@ import {
   PackageCheck,
   RefreshCw,
   Send,
+  ShieldCheck,
   Trash2,
   UserRound,
 } from "lucide-react";
@@ -33,14 +34,17 @@ import {
 } from "./title-packages";
 import type { TitleCandidate } from "./types";
 import { TitlePackagePreviewDialog } from "./title-package-preview-dialog";
+import { canApproveTitle } from "./rules";
 
 type Props = {
   candidates: TitleCandidate[];
   canShare: boolean;
+  canApprove: boolean;
   canRevise: boolean;
   revisingPackageId: string | null;
   onSelect: (candidate: TitleCandidate) => void;
   onSharePackage: (group: TitlePackageGroup) => void;
+  onReviewPackage: (group: TitlePackageGroup, approvalTarget: number) => void;
   onRevisePackage: (group: TitlePackageGroup) => void;
   canDelete: boolean;
   onDeleteFolder: (folder: EditorialFolderGroup) => void;
@@ -59,10 +63,12 @@ const dateTime = new Intl.DateTimeFormat("es-PE", {
 export function TitlePackageList({
   candidates,
   canShare,
+  canApprove,
   canRevise,
   revisingPackageId,
   onSelect,
   onSharePackage,
+  onReviewPackage,
   onRevisePackage,
   canDelete,
   onDeleteFolder,
@@ -164,10 +170,12 @@ export function TitlePackageList({
               key={group.id}
               group={group}
               canShare={canShare}
+              canApprove={canApprove}
               canRevise={canRevise}
               revising={revisingPackageId === group.id}
               onSelect={onSelect}
               onSharePackage={onSharePackage}
+              onReviewPackage={onReviewPackage}
               onRevisePackage={onRevisePackage}
               onPreview={setPreviewPackage}
             />
@@ -357,19 +365,23 @@ function FolderDirectory({
 function PackageCard({
   group,
   canShare,
+  canApprove,
   canRevise,
   revising,
   onSelect,
   onSharePackage,
+  onReviewPackage,
   onRevisePackage,
   onPreview,
 }: {
   group: TitlePackageGroup;
   canShare: boolean;
+  canApprove: boolean;
   canRevise: boolean;
   revising: boolean;
   onSelect: (candidate: TitleCandidate) => void;
   onSharePackage: (group: TitlePackageGroup) => void;
+  onReviewPackage: (group: TitlePackageGroup, approvalTarget: number) => void;
   onRevisePackage: (group: TitlePackageGroup) => void;
   onPreview: (group: TitlePackageGroup) => void;
 }) {
@@ -384,6 +396,10 @@ function PackageCard({
   );
   const approvalTarget = Math.min(4, group.candidates.length);
   const packageComplete = approved.length >= approvalTarget;
+  const remainingApprovalTarget = Math.min(
+    readyToSend.length,
+    Math.max(0, approvalTarget - approved.length),
+  );
   const isCorrection = approved.length > 0 && readyToSend.length > 0;
   const shareGroup = isCorrection
     ? { ...group, candidates: readyToSend }
@@ -443,19 +459,35 @@ function PackageCard({
                 : `Corregir ${observed.length} pendiente${observed.length === 1 ? "" : "s"}`}
             </Button>
           ) : readyToSend.length && !packageComplete ? (
-            <Button
-              variant="outline"
-              onClick={() => onSharePackage(shareGroup)}
-              disabled={
-                !canShare ||
-                readyToSend.some((item) => item.status === "evaluating")
-              }
-            >
-              <Send />
-              {isCorrection
-                ? `Enviar ${readyToSend.length} corrección${readyToSend.length === 1 ? "" : "es"}`
-                : "Enviar paquete al cliente"}
-            </Button>
+            <>
+              <Button
+                variant="outline"
+                onClick={() =>
+                  onReviewPackage(shareGroup, remainingApprovalTarget)
+                }
+                disabled={
+                  !canApprove ||
+                  !remainingApprovalTarget ||
+                  readyToSend.some((item) => !canApproveTitle(item))
+                }
+              >
+                <ShieldCheck />
+                Revisar y aprobar aquí
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => onSharePackage(shareGroup)}
+                disabled={
+                  !canShare ||
+                  readyToSend.some((item) => item.status === "evaluating")
+                }
+              >
+                <Send />
+                {isCorrection
+                  ? `Enviar ${readyToSend.length} corrección${readyToSend.length === 1 ? "" : "es"}`
+                  : "Enviar paquete al cliente"}
+              </Button>
+            </>
           ) : null}
         </div>
       </CardHeader>
